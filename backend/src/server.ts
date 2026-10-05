@@ -7,11 +7,16 @@ import goalRoutes from './routes/goalRoutes.js';
 
 const app = express();
 
-// Middleware
+// Middleware: robust CORS allowing any origin dynamically
 app.use(
   cors({
-    origin: [ENV.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000', '*'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl) or any origin
+      callback(null, true);
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
   })
 );
 
@@ -36,6 +41,19 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// Root welcome endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Daily Goal Tracker API is running.',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      goals: '/api/goals',
+    },
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/goals', goalRoutes);
@@ -57,10 +75,13 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Start Server
-async function startServer() {
-  await connectDB();
+// Connect to DB immediately
+connectDB().catch((err) => {
+  console.error('Initial DB connection attempt failed:', err.message);
+});
 
+// Start listening if not running inside Vercel serverless runtime
+if (!process.env.VERCEL) {
   app.listen(ENV.PORT, () => {
     console.log(`🚀 Daily Goal Tracker API Server running on port ${ENV.PORT}`);
     console.log(`📡 Health Check: http://localhost:${ENV.PORT}/api/health`);
@@ -68,7 +89,5 @@ async function startServer() {
     console.log(`🎯 Goals Endpoints: http://localhost:${ENV.PORT}/api/goals`);
   });
 }
-
-startServer();
 
 export default app;
