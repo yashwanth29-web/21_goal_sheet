@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Period {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
+enum StatusType {
+  PENDING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  MISSED
+}
+
+model User {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  passwordHash  String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  goals         Goal[]
+  dailyStatuses DailyStatus[]
+
+  @@map("users")
+}
+
+model Goal {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  time        String        // e.g. "08:00 AM"
+  period      Period        @default(MORNING)
+  workGoal    String        // e.g. "DSA Practice"
+  category    String?       @default("General")
+  description String?
+  date        String?       // Optional specific date YYYY-MM-DD or null for repeating routine
+  order       Int           @default(1)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  statuses    DailyStatus[]
+
+  @@index([userId])
+  @@index([userId, date])
+  @@map("goals")
+}
+
+model DailyStatus {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId    String
+  goal      Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  date      String     // "YYYY-MM-DD"
+  status    StatusType @default(PENDING)
+  note      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([goalId, date])
+  @@index([userId])
+  @@index([date])
+  @@index([userId, date])
+  @@map("daily_statuses")
+}
