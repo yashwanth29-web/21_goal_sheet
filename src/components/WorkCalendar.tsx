@@ -100,13 +100,15 @@ export const WorkCalendar: React.FC<WorkCalendarProps> = ({
         <table className="w-full border-collapse text-left min-w-max">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300">
-              <th className="sticky top-0 left-0 z-30 p-3 sm:p-4 min-w-[170px] sm:min-w-[190px] bg-slate-50/98 dark:bg-slate-950/98 backdrop-blur-md border-r border-slate-200 dark:border-slate-800 font-bold uppercase tracking-wider text-xs shadow-[4px_0_10px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_10px_rgba(0,0,0,0.4)]">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-                    <Clock className="w-3.5 h-3.5" />
+              <th className="sticky top-0 left-0 z-30 p-2 sm:p-4 w-[105px] min-w-[105px] sm:w-[180px] sm:min-w-[180px] bg-slate-50/98 dark:bg-slate-950/98 backdrop-blur-md border-r border-slate-200 dark:border-slate-800 font-bold uppercase tracking-wider text-xs shadow-[4px_0_10px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_10px_rgba(0,0,0,0.4)]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-0.5 sm:gap-2">
+                  <span className="flex items-center gap-1 sm:gap-1.5 text-indigo-600 dark:text-indigo-400 text-[11px] sm:text-xs font-black">
+                    <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
                     DATE
                   </span>
-                  <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 capitalize">Daily Progress</span>
+                  <span className="text-[9px] sm:text-[10px] font-normal text-slate-500 dark:text-slate-400 capitalize">
+                    Progress
+                  </span>
                 </div>
               </th>
 
@@ -117,15 +119,15 @@ export const WorkCalendar: React.FC<WorkCalendarProps> = ({
                 return (
                   <th
                     key={slot.id}
-                    className="sticky top-0 z-20 p-3 sm:p-4 min-w-[210px] max-w-[240px] bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md border-r border-slate-200 dark:border-slate-800/60 font-medium text-xs align-top group"
+                    className="sticky top-0 z-20 p-2.5 sm:p-4 min-w-[170px] sm:min-w-[210px] max-w-[200px] sm:max-w-[240px] bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md border-r border-slate-200 dark:border-slate-800/60 font-medium text-xs align-top group"
                   >
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1 sm:gap-1.5">
                       <div className="flex items-center justify-between gap-1">
                         <span className="font-mono text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                           {slot.time}
                         </span>
 
-                        <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 opacity-80 sm:opacity-60 group-hover:opacity-100 transition-opacity">
                           <button
                             type="button"
                             onClick={() => onEditSlot(slot)}
@@ -147,7 +149,7 @@ export const WorkCalendar: React.FC<WorkCalendarProps> = ({
 
                       <div>
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${periodInfo.pill}`}
+                          className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold border ${periodInfo.pill}`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${periodInfo.dot}`} />
                           {periodInfo.label}
@@ -162,11 +164,11 @@ export const WorkCalendar: React.FC<WorkCalendarProps> = ({
                 );
               })}
 
-              <th className="sticky top-0 z-20 p-3 sm:p-4 min-w-[140px] bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md align-middle text-center">
+              <th className="sticky top-0 z-20 p-2.5 sm:p-4 min-w-[120px] sm:min-w-[140px] bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md align-middle text-center">
                 <button
                   type="button"
                   onClick={onAddSlot}
-                  className="flex items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl border border-dashed border-indigo-400 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-white hover:bg-indigo-50 dark:hover:bg-indigo-600/20 hover:border-indigo-500 transition-all text-xs font-semibold cursor-pointer group"
+                  className="flex items-center justify-center gap-1 sm:gap-1.5 w-full py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-xl border border-dashed border-indigo-400 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-white hover:bg-indigo-50 dark:hover:bg-indigo-600/20 hover:border-indigo-500 transition-all text-xs font-semibold cursor-pointer group"
                 >
                   <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform duration-200" />
                   <span>Add Slot</span>

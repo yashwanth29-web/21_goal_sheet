@@ -407,6 +407,27 @@ export function App() {
     }
   };
 
+  const handleJumpToDate = useCallback((dateKey: string) => {
+    const [yearStr, monthStr] = dateKey.split('-');
+    const targetYear = parseInt(yearStr, 10);
+    const targetMonth = parseInt(monthStr, 10) - 1;
+
+    if (targetYear !== currentYear || targetMonth !== currentMonthIndex) {
+      setCurrentYear(targetYear);
+      setCurrentMonthIndex(targetMonth);
+    }
+
+    setTimeout(() => {
+      const el = document.getElementById(`date-row-${dateKey}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.remove('animate-row-flash');
+        void el.offsetWidth; // trigger reflow
+        el.classList.add('animate-row-flash');
+      }
+    }, 150);
+  }, [currentYear, currentMonthIndex]);
+
   const handleGoToday = () => {
     setCurrentYear(todayDate.getFullYear());
     setCurrentMonthIndex(todayDate.getMonth());
@@ -414,6 +435,9 @@ export function App() {
       const el = document.getElementById(`date-row-${todayKey}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.remove('animate-row-flash');
+        void el.offsetWidth;
+        el.classList.add('animate-row-flash');
       }
     }, 150);
   };
@@ -456,7 +480,7 @@ export function App() {
       )}
 
       {/* Main Container */}
-      <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 space-y-5">
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 pt-3 sm:pt-6 space-y-4 sm:space-y-5">
         {/* 1. Header with Authenticated User & Logout */}
         <Header
           user={user}
@@ -486,9 +510,11 @@ export function App() {
         {/* 4. Calendar Toolbar (Month navigation & Filters) */}
         <CalendarToolbar
           currentMonthYearText={monthYearDisplay}
+          days={daysInMonth}
           onPrevMonth={handlePrevMonth}
           onNextMonth={handleNextMonth}
           onGoToday={handleGoToday}
+          onSelectDate={handleJumpToDate}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           selectedPeriod={selectedPeriod}

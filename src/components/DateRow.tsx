@@ -62,24 +62,25 @@ export const DateRow: React.FC<DateRowProps> = ({
       }`}
     >
       <td
-        className={`sticky left-0 z-20 p-3 sm:p-4 min-w-[170px] sm:min-w-[190px] border-r border-slate-200 dark:border-slate-800 backdrop-blur-md transition-colors ${
+        className={`sticky left-0 z-20 p-2 sm:p-4 w-[105px] min-w-[105px] sm:w-[180px] sm:min-w-[180px] border-r border-slate-200 dark:border-slate-800 backdrop-blur-md transition-colors ${
           day.isToday
             ? 'bg-indigo-50/95 dark:bg-slate-900/95 shadow-[4px_0_12px_rgba(79,70,229,0.08)] dark:shadow-[4px_0_12px_rgba(79,70,229,0.15)] ring-1 ring-inset ring-indigo-500/40'
             : 'bg-white/95 dark:bg-slate-950/95 group-hover/row:bg-slate-50/95 dark:group-hover/row:bg-slate-900/95 shadow-[4px_0_10px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_10px_rgba(0,0,0,0.3)]'
         }`}
       >
         <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          {/* Date and Day Tag */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div className="flex items-center gap-1 sm:gap-2">
               <span
-                className={`text-sm sm:text-base font-bold font-mono ${
-                  day.isToday ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'
+                className={`text-xs sm:text-base font-bold font-mono tracking-tight ${
+                  day.isToday ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-900 dark:text-slate-100'
                 }`}
               >
                 {day.formattedDisplay}
               </span>
               <span
-                className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                className={`text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded font-semibold ${
                   day.isWeekend
                     ? 'bg-slate-100 text-slate-500 dark:bg-slate-800/80 dark:text-slate-400'
                     : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
@@ -90,30 +91,31 @@ export const DateRow: React.FC<DateRowProps> = ({
             </div>
 
             {day.isToday && (
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/40 px-2 py-0.5 rounded-full animate-pulse-subtle">
+              <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/40 px-1.5 py-0.2 sm:px-2 sm:py-0.5 rounded-full w-max animate-pulse-subtle">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-ping" />
                 Today
               </span>
             )}
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            <span className="flex items-center gap-1 font-mono">
+          {/* Progress Counts and Percent */}
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+            <span className="flex items-center gap-0.5 sm:gap-1 font-mono">
               {filledCount > 0 ? (
                 <>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{completedCount}</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">{completedCount}</span>
                   {partialCount > 0 && <span className="text-amber-600 dark:text-amber-400">+{partialCount}p</span>}
                   {missedCount > 0 && <span className="text-rose-600 dark:text-rose-400">+{missedCount}m</span>}
-                  <span>/{totalSlots}</span>
+                  <span className="text-slate-400 dark:text-slate-500">/{totalSlots}</span>
                 </>
               ) : (
-                <span className="text-slate-400 dark:text-slate-500">Not tracked</span>
+                <span className="text-slate-400 dark:text-slate-500 text-[10px]">0/{totalSlots}</span>
               )}
             </span>
 
             {filledCount > 0 && (
               <span
-                className={`text-[11px] font-semibold font-mono ${
+                className={`text-[10px] sm:text-[11px] font-bold font-mono ${
                   dayAchievementPct >= 80
                     ? 'text-emerald-600 dark:text-emerald-400'
                     : dayAchievementPct >= 50
@@ -126,7 +128,8 @@ export const DateRow: React.FC<DateRowProps> = ({
             )}
           </div>
 
-          <div className="w-full bg-slate-200 dark:bg-slate-800/80 h-1.5 rounded-full overflow-hidden flex gap-0.5 mt-1">
+          {/* Progress Bar */}
+          <div className="w-full bg-slate-200 dark:bg-slate-800/80 h-1 sm:h-1.5 rounded-full overflow-hidden flex gap-0.5 mt-0.5">
             {totalSlots > 0 && (
               <>
                 <div
@@ -145,24 +148,25 @@ export const DateRow: React.FC<DateRowProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+          {/* Row Quick Action Buttons */}
+          <div className="flex items-center gap-2 mt-1 sm:opacity-0 group-hover/row:opacity-100 transition-opacity">
             <button
               type="button"
               onClick={() => onMarkAllDayCompleted(day.dateKey)}
-              className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline cursor-pointer"
+              className="flex items-center gap-0.5 text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline cursor-pointer font-medium"
               title="Mark all goals for this day as Completed"
             >
-              <CheckCheck className="w-3 h-3" />
+              <CheckCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               <span>All Done</span>
             </button>
             {filledCount > 0 && (
               <button
                 type="button"
                 onClick={() => onResetDayStatuses(day.dateKey)}
-                className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer"
+                className="flex items-center gap-0.5 text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer font-medium"
                 title="Reset all statuses for this day"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 <span>Reset</span>
               </button>
             )}
@@ -175,7 +179,7 @@ export const DateRow: React.FC<DateRowProps> = ({
         const record: CellStatusRecord | undefined = statusRecords[key];
 
         return (
-          <td key={slot.id} className="p-2 sm:p-2.5 align-top min-w-[210px] max-w-[240px]">
+          <td key={slot.id} className="p-1.5 sm:p-2.5 align-top min-w-[170px] sm:min-w-[210px] max-w-[200px] sm:max-w-[240px]">
             <GoalCell
               slot={slot}
               dateKey={day.dateKey}

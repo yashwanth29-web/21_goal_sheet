@@ -67,7 +67,7 @@ export const GoalCell: React.FC<GoalCellProps> = ({
 
   return (
     <div
-      className={`group relative flex flex-col justify-between p-2.5 min-w-[200px] w-full max-w-[240px] rounded-xl border transition-all duration-200 ${cellStatusStyle} ${
+      className={`group relative flex flex-col justify-between p-2 sm:p-2.5 min-w-[170px] sm:min-w-[200px] w-full max-w-[200px] sm:max-w-[240px] rounded-xl border transition-all duration-200 ${cellStatusStyle} ${
         isToday ? 'ring-2 ring-indigo-500/40 dark:ring-indigo-500/30' : ''
       }`}
     >
