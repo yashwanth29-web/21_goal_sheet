@@ -14,6 +14,7 @@ import {
   getDaysInMonth,
   getMonthYearDisplay,
   formatDateKey,
+  sortSlotsByTime,
 } from './utils/dateUtils';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
@@ -125,7 +126,7 @@ export function App() {
       ]);
 
       if (goalsRes.success) {
-        setSlots(goalsRes.goals);
+        setSlots(sortSlotsByTime(goalsRes.goals));
       }
       if (statusesRes.success) {
         setStatusRecords(statusesRes.statuses as StatusRecordsMap);
@@ -165,7 +166,7 @@ export function App() {
   }, [daysInMonth, todayDate, todayKey]);
 
   const filteredSlots = useMemo(() => {
-    return slots.filter((s) => {
+    const list = slots.filter((s) => {
       const slotPeriod = s.period.toUpperCase();
       if (selectedPeriod !== 'ALL' && slotPeriod !== selectedPeriod.toUpperCase()) return false;
       if (searchQuery) {
@@ -179,6 +180,7 @@ export function App() {
       }
       return true;
     });
+    return sortSlotsByTime(list);
   }, [slots, selectedPeriod, searchQuery]);
 
   const monthStats: MonthStatistics = useMemo(() => {
@@ -294,7 +296,7 @@ export function App() {
 
       if (res.success && res.goal) {
         setSlots((prev) =>
-          prev.map((s) => (s.id === res.goal!.id ? res.goal! : s))
+          sortSlotsByTime(prev.map((s) => (s.id === res.goal!.id ? res.goal! : s)))
         );
         showNotification(`Updated goal: ${title}`);
       } else {
@@ -311,7 +313,7 @@ export function App() {
       });
 
       if (res.success && res.goal) {
-        setSlots((prev) => [...prev, res.goal!]);
+        setSlots((prev) => sortSlotsByTime([...prev, res.goal!]));
         showNotification(`Added new goal: ${title}`);
       } else {
         showNotification(res.message || 'Failed to add goal', 'info');
