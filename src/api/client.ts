@@ -1,6 +1,21 @@
 import type { Goal, GoalStatus, User, AuthResponse } from '../types';
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+function getApiBaseUrl(): string {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
+    let clean = envUrl.trim().replace(/\/+$/, '');
+    if (!clean.endsWith('/api') && !clean.includes('/api/')) {
+      clean = `${clean}/api`;
+    }
+    return clean;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return '/api';
+  }
+  return 'http://localhost:5000/api';
+}
+
+const API_BASE = getApiBaseUrl();
 
 const TOKEN_KEY = 'goal_tracker_jwt_token';
 
