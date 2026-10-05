@@ -69,3 +69,44 @@ export interface AppFilterState {
   periodFilter: 'ALL' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
   statusFilter: 'ALL' | GoalStatus;
 }
+
+export interface LeaderboardUser {
+  id: string;
+  name: string;
+  email: string;
+  isCurrentUser: boolean;
+  totalGoals: number;
+  today: {
+    rate: number;
+    completed: number;
+    partial: number;
+    missed: number;
+    tracked: number;
+    total: number;
+  };
+  monthly: {
+    rate: number;
+    completed: number;
+    partial: number;
+    missed: number;
+    tracked: number;
+  };
+  streak: {
+    current: number;
+    best: number;
+    isActiveToday: boolean;
+  };
+  allTimeCompleted: number;
+  lastActiveAt: string;
+  joinedAt: string;
+}
+
+export interface LeaderboardResponse {
+  success: boolean;
+  data: LeaderboardUser[];
+  todayKey: string;
+  monthKey: string;
+  totalUsers: number;
+  message?: string;
+}
+

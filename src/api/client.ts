@@ -1,4 +1,4 @@
-import type { Goal, GoalStatus, User, AuthResponse } from '../types';
+import type { Goal, GoalStatus, User, AuthResponse, LeaderboardUser, LeaderboardResponse } from '../types';
 
 function getApiBaseUrl(): string {
   const envUrl = (import.meta as any).env?.VITE_API_URL;
@@ -232,6 +232,23 @@ export const api = {
       });
       return {
         success: res.success,
+        message: res.data?.message || res.message,
+      };
+    },
+  },
+
+  // Live Community Leaderboard API
+  leaderboard: {
+    async get(): Promise<LeaderboardResponse> {
+      const res = await request<LeaderboardResponse>('/leaderboard', {
+        method: 'GET',
+      });
+      return {
+        success: res.success,
+        data: res.data?.data || [],
+        todayKey: res.data?.todayKey || '',
+        monthKey: res.data?.monthKey || '',
+        totalUsers: res.data?.totalUsers || 0,
         message: res.data?.message || res.message,
       };
     },

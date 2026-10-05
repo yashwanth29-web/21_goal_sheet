@@ -4,6 +4,7 @@ import { ENV } from './config/env.js';
 import { connectDB } from './config/prisma.js';
 import authRoutes from './routes/authRoutes.js';
 import goalRoutes from './routes/goalRoutes.js';
+import leaderboardRoutes from './routes/leaderboardRoutes.js';
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.get('/', (req: Request, res: Response) => {
       health: '/api/health',
       auth: '/api/auth',
       goals: '/api/goals',
+      leaderboard: '/api/leaderboard',
     },
   });
 });
@@ -57,6 +59,7 @@ app.get('/', (req: Request, res: Response) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/goals', goalRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 // 404 Handler
 app.use((req: Request, res: Response) => {

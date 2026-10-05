@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { CalendarDay } from '../utils/dateUtils';
 import type { ScheduleSlot, StatusRecordsMap } from '../types';
-import { CheckCircle2, AlertCircle, XCircle, ArrowDown } from 'lucide-react';
+import { CheckCircle2, AlertCircle, XCircle, ArrowDown, Trophy } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface TodayHighlightProps {
@@ -10,6 +10,7 @@ interface TodayHighlightProps {
   statusRecords: StatusRecordsMap;
   onJumpToToday: () => void;
   onMarkAllTodayCompleted: () => void;
+  onOpenLeaderboard?: () => void;
 }
 
 export const TodayHighlight: React.FC<TodayHighlightProps> = ({
@@ -17,6 +18,7 @@ export const TodayHighlight: React.FC<TodayHighlightProps> = ({
   slots,
   statusRecords,
   onJumpToToday,
+  onOpenLeaderboard,
 }) => {
   const previousAchievementRef = useRef<number>(0);
 
@@ -126,6 +128,18 @@ export const TodayHighlight: React.FC<TodayHighlightProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenLeaderboard && (
+            <button
+              type="button"
+              onClick={onOpenLeaderboard}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:border-amber-500/40 dark:text-amber-300 text-xs font-bold shadow-sm transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+              title="Compare your today & monthly rank with other users"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Live Ranking</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onJumpToToday}

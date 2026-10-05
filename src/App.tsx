@@ -27,6 +27,7 @@ import { AddEditModal } from './components/AddEditModal';
 import { ManageScheduleModal } from './components/ManageScheduleModal';
 import { NoteModal } from './components/NoteModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { LeaderboardModal } from './components/LeaderboardModal';
 import { EmptyState } from './components/EmptyState';
 import { CalendarDays, RefreshCw } from 'lucide-react';
 
@@ -61,6 +62,7 @@ export function App() {
   const [isAddEditOpen, setIsAddEditOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<ScheduleSlot | null>(null);
   const [isManageScheduleOpen, setIsManageScheduleOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const [noteModalData, setNoteModalData] = useState<{
     isOpen: boolean;
@@ -492,6 +494,7 @@ export function App() {
             setIsAddEditOpen(true);
           }}
           onManageSchedule={() => setIsManageScheduleOpen(true)}
+          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
           totalSlots={slots.length}
           theme={theme}
           onToggleTheme={handleToggleTheme}
@@ -507,6 +510,7 @@ export function App() {
           statusRecords={statusRecords}
           onJumpToToday={handleGoToday}
           onMarkAllTodayCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
+          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
         />
 
         {/* 4. Calendar Toolbar (Month navigation & Filters) */}
@@ -627,6 +631,13 @@ export function App() {
         title={deleteConfirm.title}
         message={deleteConfirm.message}
         confirmLabel={deleteConfirm.confirmLabel}
+      />
+
+      {/* 6. Live Rankings & Achievement Rate Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        currentUserId={user?.id}
       />
     </div>
   );

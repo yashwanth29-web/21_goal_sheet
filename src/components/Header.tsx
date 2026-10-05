@@ -9,6 +9,7 @@ import {
   Moon,
   ShieldCheck,
   ChevronDown,
+  Trophy,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -16,6 +17,7 @@ interface HeaderProps {
   onLogout: () => void;
   onAddGoal: () => void;
   onManageSchedule: () => void;
+  onOpenLeaderboard: () => void;
   totalSlots: number;
   theme: AppTheme;
   onToggleTheme: () => void;
@@ -26,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onAddGoal,
   onManageSchedule,
+  onOpenLeaderboard,
   totalSlots,
   theme,
   onToggleTheme,
@@ -133,6 +136,20 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Dark</span>
             </>
           )}
+        </button>
+
+        {/* Live Rankings / Leaderboard Button */}
+        <button
+          type="button"
+          onClick={onOpenLeaderboard}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/20 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 dark:from-amber-500/20 dark:via-amber-500/30 dark:to-orange-500/20 border border-amber-300/80 dark:border-amber-500/50 text-amber-900 dark:text-amber-300 text-xs font-extrabold shadow-sm transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+          title="View Live User Rankings, Today & Monthly Achievement Rates, and Streaks"
+        >
+          <div className="relative flex items-center">
+            <Trophy className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+          </div>
+          <span>Live Rankings</span>
         </button>
 
         {/* Manage Routine Button */}
