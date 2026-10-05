@@ -81,9 +81,25 @@ export function getDaysInMonth(year: number, monthIndex: number, todayRef = new 
   return days;
 }
 
+export function parseTimeRange(timeStr: string): { startTime: string; endTime: string } {
+  if (!timeStr) return { startTime: '08:00 AM', endTime: '' };
+  if (timeStr.includes('-')) {
+    const parts = timeStr.split('-');
+    return {
+      startTime: parts[0].trim(),
+      endTime: parts[1] ? parts[1].trim() : '',
+    };
+  }
+  return {
+    startTime: timeStr.trim(),
+    endTime: '',
+  };
+}
+
 export function detectPeriodFromTime(timeStr: string): Period {
   if (!timeStr) return 'Morning';
-  const upper = timeStr.toUpperCase().trim();
+  const startPart = timeStr.split('-')[0].trim();
+  const upper = startPart.toUpperCase();
   const isPM = upper.includes('PM');
   const isAM = upper.includes('AM');
 
@@ -101,7 +117,7 @@ export function detectPeriodFromTime(timeStr: string): Period {
 }
 
 export function normalizeTimeString(timeInput: string): string {
-  if (!timeInput) return '08:00 AM';
+  if (!timeInput) return '';
   const trimmed = timeInput.trim();
   if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(trimmed)) {
     const parts = trimmed.split(/[:\s]+/);
@@ -123,7 +139,9 @@ export function normalizeTimeString(timeInput: string): string {
 }
 
 export function timeToMinutes(timeStr: string): number {
-  const upper = timeStr.toUpperCase().trim();
+  if (!timeStr) return 0;
+  const startPart = timeStr.split('-')[0].trim();
+  const upper = startPart.toUpperCase();
   const isPM = upper.includes('PM');
   const isAM = upper.includes('AM');
   const match = upper.match(/(\d+):(\d+)/);

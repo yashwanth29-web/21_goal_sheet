@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ScheduleSlot, Period } from '../types';
-import { detectPeriodFromTime, normalizeTimeString } from '../utils/dateUtils';
-import { X, Clock, Sun, Sunrise, Sunset, Moon, Target, Check, AlertCircle } from 'lucide-react';
+import { detectPeriodFromTime, normalizeTimeString, parseTimeRange } from '../utils/dateUtils';
+import { X, Clock, Sun, Sunrise, Sunset, Moon, Target, Check, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface AddEditModalProps {
   isOpen: boolean;
@@ -36,7 +36,8 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
   initialSlot,
   selectedDateText,
 }) => {
-  const [time, setTime] = useState('08:00 AM');
+  const [startTime, setStartTime] = useState('08:00 AM');
+  const [endTime, setEndTime] = useState('10:00 AM');
   const [period, setPeriod] = useState<Period>('Morning');
   const [goalTitle, setGoalTitle] = useState('');
   const [category, setCategory] = useState('Study');
@@ -47,13 +48,16 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
 
   useEffect(() => {
     if (initialSlot) {
-      setTime(initialSlot.time || '08:00 AM');
+      const { startTime: parsedStart, endTime: parsedEnd } = parseTimeRange(initialSlot.time || '08:00 AM');
+      setStartTime(parsedStart);
+      setEndTime(parsedEnd);
       setPeriod(initialSlot.period || 'Morning');
-      setGoalTitle(initialSlot.goalTitle || '');
+      setGoalTitle(initialSlot.goalTitle || initialSlot.workGoal || '');
       setCategory(initialSlot.category || 'Study');
       setDescription(initialSlot.description || '');
     } else {
-      setTime('08:00 AM');
+      setStartTime('08:00 AM');
+      setEndTime('10:00 AM');
       setPeriod('Morning');
       setGoalTitle('');
       setCategory('Study');
@@ -64,9 +68,9 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setTime(val);
+    setStartTime(val);
     const detected = detectPeriodFromTime(val);
     setPeriod(detected);
   };
@@ -77,17 +81,19 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
       setError('Please enter a goal or work title.');
       return;
     }
-    if (!time.trim()) {
-      setError('Please specify a time slot.');
+    if (!startTime.trim()) {
+      setError('Please specify a start time.');
       return;
     }
 
-    const normalizedTime = normalizeTimeString(time);
+    const normStart = normalizeTimeString(startTime);
+    const normEnd = endTime.trim() ? normalizeTimeString(endTime) : '';
+    const finalTime = normEnd ? `${normStart} - ${normEnd}` : normStart;
 
     const title = goalTitle.trim();
     onSave({
       id: initialSlot?.id,
-      time: normalizedTime,
+      time: finalTime,
       period,
       workGoal: title,
       goalTitle: title,
@@ -113,7 +119,7 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
                 {isEditing ? 'Edit Work Goal' : 'Add Work Goal'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isEditing ? 'Update slot schedule and target' : 'Define a time slot and goal for the daily timetable'}
+                {isEditing ? 'Update slot schedule and target' : 'Define time slot range and goal for the daily timetable'}
               </p>
             </div>
           </div>
@@ -146,21 +152,35 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Time Slot Range: Start Time + End Time + Period */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                Time Slot
+                Start Time
               </label>
               <input
                 type="text"
-                value={time}
-                onChange={handleTimeChange}
-                placeholder="e.g. 08:00 AM or 14:30"
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
+                value={startTime}
+                onChange={handleStartTimeChange}
+                placeholder="e.g. 05:00 AM"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
                 required
               />
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">Format: 08:00 AM, 02:30 PM, etc.</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <ArrowRight className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                End Time <span className="text-[10px] lowercase text-slate-400">(opt)</span>
+              </label>
+              <input
+                type="text"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                placeholder="e.g. 07:00 AM"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
+              />
             </div>
 
             <div>
@@ -170,16 +190,19 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as Period)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-2.5 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none cursor-pointer"
               >
                 {PERIOD_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.label} ({opt.desc})
+                    {opt.label}
                   </option>
                 ))}
               </select>
             </div>
           </div>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 block -mt-2">
+            Tip: Format times like <code className="text-indigo-600 dark:text-indigo-400">05:00 AM</code>, <code className="text-indigo-600 dark:text-indigo-400">07:30 PM</code>
+          </span>
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
@@ -259,3 +282,4 @@ export const AddEditModal: React.FC<AddEditModalProps> = ({
     </div>
   );
 };
+
