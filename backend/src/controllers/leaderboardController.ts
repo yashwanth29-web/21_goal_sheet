@@ -13,33 +13,58 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
     const monthPrefix = `${year}-${month}`;
 
     // Fetch all users with their goals and daily statuses
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-        goals: {
-          select: {
-            id: true,
-            workGoal: true,
-            period: true,
+    const [users, friendships] = await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+          goals: {
+            select: {
+              id: true,
+              workGoal: true,
+              period: true,
+            },
+          },
+          dailyStatuses: {
+            select: {
+              id: true,
+              goalId: true,
+              date: true,
+              status: true,
+              updatedAt: true,
+            },
+            orderBy: {
+              date: 'desc',
+            },
           },
         },
-        dailyStatuses: {
-          select: {
-            id: true,
-            goalId: true,
-            date: true,
-            status: true,
-            updatedAt: true,
-          },
-          orderBy: {
-            date: 'desc',
-          },
-        },
-      },
-    });
+      }),
+      currentUserId
+        ? (prisma as any).friendship.findMany({
+            where: {
+              OR: [
+                { senderId: currentUserId },
+                { receiverId: currentUserId },
+              ],
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // Create a lookup map for friendship status
+    const friendshipMap = new Map<string, { status: string; requestId: string; isSender: boolean }>();
+    if (friendships) {
+      friendships.forEach((f: any) => {
+        const otherUserId = f.senderId === currentUserId ? f.receiverId : f.senderId;
+        friendshipMap.set(otherUserId, {
+          status: f.status,
+          requestId: f.id,
+          isSender: f.senderId === currentUserId,
+        });
+      });
+    }
 
     const leaderboard = users.map((u) => {
       const totalGoalsCount = u.goals.length;
@@ -135,11 +160,30 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
         lastActiveAt = u.dailyStatuses[0].updatedAt.toISOString();
       }
 
+      // Determine friendship status relative to current user
+      const isCurrentUser = u.id === currentUserId;
+      let friendshipStatus: 'SELF' | 'ACCEPTED' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'NONE' = 'NONE';
+      let friendshipRequestId: string | undefined = undefined;
+
+      if (isCurrentUser) {
+        friendshipStatus = 'SELF';
+      } else if (friendshipMap.has(u.id)) {
+        const fInfo = friendshipMap.get(u.id)!;
+        friendshipRequestId = fInfo.requestId;
+        if (fInfo.status === 'ACCEPTED') {
+          friendshipStatus = 'ACCEPTED';
+        } else if (fInfo.status === 'PENDING') {
+          friendshipStatus = fInfo.isSender ? 'PENDING_SENT' : 'PENDING_RECEIVED';
+        }
+      }
+
       return {
         id: u.id,
         name: u.name,
         email: u.email,
-        isCurrentUser: u.id === currentUserId,
+        isCurrentUser,
+        friendshipStatus,
+        friendshipRequestId,
         totalGoals: totalGoalsCount,
         today: {
           rate: todayRate,

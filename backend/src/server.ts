@@ -5,6 +5,7 @@ import { connectDB } from './config/prisma.js';
 import authRoutes from './routes/authRoutes.js';
 import goalRoutes from './routes/goalRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
+import friendRoutes from './routes/friendRoutes.js';
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/friends', friendRoutes);
 
 // 404 Handler
 app.use((req: Request, res: Response) => {

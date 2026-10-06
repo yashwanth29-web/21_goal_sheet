@@ -296,4 +296,74 @@ export const api = {
       };
     },
   },
+
+  // Friends & Privacy Request API
+  friends: {
+    async sendRequest(receiverId?: string, receiverEmail?: string): Promise<{ success: boolean; message?: string }> {
+      const res = await request<{ message: string }>('/friends/request', {
+        method: 'POST',
+        body: JSON.stringify({ receiverId, receiverEmail }),
+      });
+      return {
+        success: res.success,
+        message: res.data?.message || res.message,
+      };
+    },
+
+    async respond(requestId: string, action: 'ACCEPT' | 'REJECT'): Promise<{ success: boolean; message?: string }> {
+      const res = await request<{ message: string }>('/friends/respond', {
+        method: 'POST',
+        body: JSON.stringify({ requestId, action }),
+      });
+      return {
+        success: res.success,
+        message: res.data?.message || res.message,
+      };
+    },
+
+    async getList(): Promise<{
+      success: boolean;
+      data?: {
+        friends: any[];
+        incomingRequests: any[];
+        outgoingRequests: any[];
+        totalFriends: number;
+        pendingIncomingCount: number;
+      };
+      message?: string;
+    }> {
+      const res = await request<{
+        friends: any[];
+        incomingRequests: any[];
+        outgoingRequests: any[];
+        totalFriends: number;
+        pendingIncomingCount: number;
+      }>('/friends/list', {
+        method: 'GET',
+      });
+      return {
+        success: res.success,
+        data: res.data,
+        message: res.message,
+      };
+    },
+
+    async getTracker(userId: string, month?: string): Promise<{
+      success: boolean;
+      isLocked?: boolean;
+      data?: any;
+      message?: string;
+    }> {
+      const query = month ? `?month=${encodeURIComponent(month)}` : '';
+      const res = await request<any>(`/friends/tracker/${userId}${query}`, {
+        method: 'GET',
+      });
+      return {
+        success: res.success,
+        isLocked: (res.data as any)?.isLocked,
+        data: (res.data as any)?.data,
+        message: res.data?.message || res.message,
+      };
+    },
+  },
 };

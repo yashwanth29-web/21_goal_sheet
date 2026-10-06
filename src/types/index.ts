@@ -78,11 +78,15 @@ export interface AppFilterState {
   statusFilter: 'ALL' | GoalStatus;
 }
 
+export type FriendshipStatus = 'SELF' | 'ACCEPTED' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'NONE';
+
 export interface LeaderboardUser {
   id: string;
   name: string;
   email: string;
   isCurrentUser: boolean;
+  friendshipStatus?: FriendshipStatus;
+  friendshipRequestId?: string;
   totalGoals: number;
   today: {
     rate: number;
@@ -116,5 +120,73 @@ export interface LeaderboardResponse {
   monthKey: string;
   totalUsers: number;
   message?: string;
+}
+
+export interface FriendItem {
+  friendshipId: string;
+  friend: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  connectedAt: string;
+}
+
+export interface IncomingRequestItem {
+  requestId: string;
+  from: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  requestedAt: string;
+}
+
+export interface OutgoingRequestItem {
+  requestId: string;
+  to: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  requestedAt: string;
+}
+
+export interface FriendsAndRequestsResponse {
+  success: boolean;
+  data: {
+    friends: FriendItem[];
+    incomingRequests: IncomingRequestItem[];
+    outgoingRequests: OutgoingRequestItem[];
+    totalFriends: number;
+    pendingIncomingCount: number;
+  };
+  message?: string;
+}
+
+export interface FriendDetailedTrackerResponse {
+  success: boolean;
+  isLocked: boolean;
+  message?: string;
+  data?: {
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      createdAt: string;
+    };
+    goals: Goal[];
+    dailyStatuses: Array<{
+      id: string;
+      goalId: string;
+      date: string;
+      status: string;
+      note?: string;
+    }>;
+    cheatDays: Array<{
+      date: string;
+      reason?: string;
+    }>;
+  };
 }
 
