@@ -86,16 +86,20 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSendFriendRequest = async (targetUserId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setActionLoadingId(targetUserId);
+  const handleSendFriendRequest = async (targetUserId?: string, targetEmail?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const loadingKey = targetUserId || targetEmail || 'action';
+    setActionLoadingId(loadingKey);
     try {
-      const res = await api.friends.sendRequest(targetUserId);
+      const res = await api.friends.sendRequest(targetUserId, targetEmail);
       if (res.success) {
-        // Update local status to PENDING_SENT
-        setUsers((prev) =>
-          prev.map((u) => (u.id === targetUserId ? { ...u, friendshipStatus: 'PENDING_SENT' } : u))
-        );
+        if (targetUserId) {
+          setUsers((prev) =>
+            prev.map((u) => (u.id === targetUserId ? { ...u, friendshipStatus: 'PENDING_SENT' } : u))
+          );
+        }
+        await fetchData();
+        alert(res.message || 'Friend request sent successfully! 🚀');
       } else {
         alert(res.message || 'Failed to send friend request');
       }
@@ -771,7 +775,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={(e) => handleSendFriendRequest(u.id, e)}
+                        onClick={(e) => handleSendFriendRequest(u.id, undefined, e)}
                         disabled={actionLoadingId === u.id}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50"
                         title="Send friend request to compete on daily routine scores"
