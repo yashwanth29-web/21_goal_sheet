@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Search, X, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Search, X } from 'lucide-react';
 import type { Period, GoalStatus } from '../types';
 import type { CalendarDay } from '../utils/dateUtils';
 
@@ -38,67 +38,58 @@ export const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
 
   return (
     <div className="w-full flex flex-col gap-3 p-3 sm:p-4 rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-xl bg-white/95 dark:bg-slate-900/80">
-      {/* Top Row: Month Navigation + Quick Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5">
-        {/* Month Stepper */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 p-1 rounded-xl shadow-inner">
+      {/* Top Row: Unified Month & Date Navigator */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Unified Month & Date Stepper */}
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 p-1 rounded-xl shadow-inner w-full sm:w-auto justify-between sm:justify-start">
           <button
             type="button"
             onClick={onPrevMonth}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 sm:px-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             title="Previous Month"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className="px-2 sm:px-3 py-1 min-w-[120px] sm:min-w-[140px] text-center font-bold text-xs sm:text-sm text-slate-900 dark:text-white font-mono tracking-tight flex items-center justify-center gap-1.5">
-            <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <span>{currentMonthYearText}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={onNextMonth}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-            title="Next Month"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Date Jump Selector & Today Button */}
-        <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
-          {/* Jump to Specific Date Dropdown */}
-          <div className="relative flex items-center">
-            <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 absolute left-2.5 pointer-events-none" />
+          {/* Direct Date Picker / Month Selector */}
+          <div className="relative flex items-center px-1">
+            <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 absolute left-2 pointer-events-none" />
             <select
+              value=""
               onChange={(e) => {
                 if (e.target.value) {
                   onSelectDate(e.target.value);
-                  e.target.value = '';
                 }
               }}
-              defaultValue=""
-              className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer transition-colors shadow-sm"
-              title="Select a specific date to jump directly to it"
+              className="appearance-none bg-transparent pl-7 pr-4 py-1 font-bold text-xs sm:text-sm text-slate-900 dark:text-white font-mono tracking-tight cursor-pointer focus:outline-none text-center"
+              title="Click to jump to a specific date in this month"
             >
-              <option value="" disabled>
-                📅 Jump to Date...
+              <option value="" disabled className="dark:bg-slate-900 text-slate-800 dark:text-white font-bold">
+                {currentMonthYearText}
               </option>
               {days.map((d) => (
-                <option key={d.dateKey} value={d.dateKey}>
+                <option key={d.dateKey} value={d.dateKey} className="dark:bg-slate-900 text-slate-800 dark:text-white font-mono">
                   {d.formattedDisplay} ({d.dayNameShort}) {d.isToday ? '⭐ Today' : ''}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Today Button */}
+          <button
+            type="button"
+            onClick={onNextMonth}
+            className="p-1.5 sm:px-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Next Month"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Quick Today Jump */}
           <button
             type="button"
             onClick={onGoToday}
-            className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer shrink-0 hover:scale-[1.02] active:scale-[0.98]"
-            title="Jump to Today"
+            className="ml-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer shrink-0 hover:scale-105 active:scale-95"
+            title="Jump directly to Today"
           >
             Today
           </button>

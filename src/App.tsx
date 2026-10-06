@@ -575,10 +575,7 @@ export function App() {
           onToggleTheme={handleToggleTheme}
         />
 
-        {/* 2. Top Statistics Summary */}
-        <Statistics stats={monthStats} monthName={monthYearDisplay} />
-
-        {/* 3. Today's Highlight Bar */}
+        {/* 2. Today's Highlight Bar (Immediate Daily Focus) */}
         <TodayHighlight
           todayDay={todayDay}
           slots={slots}
@@ -588,6 +585,9 @@ export function App() {
           onJumpToToday={handleGoToday}
           onMarkAllTodayCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
         />
+
+        {/* 3. Top Statistics Summary (Compact Month Overview) */}
+        <Statistics stats={monthStats} monthName={monthYearDisplay} />
 
         {/* 4. Calendar Toolbar (Month navigation & Filters) */}
         <CalendarToolbar
