@@ -348,6 +348,36 @@ export const api = {
       };
     },
 
+    async search(query: string = ''): Promise<{
+      success: boolean;
+      data?: Array<{
+        id: string;
+        name: string;
+        email: string;
+        relationship: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'ACCEPTED';
+        requestId?: string;
+        joinedAt: string;
+      }>;
+      message?: string;
+    }> {
+      const q = encodeURIComponent(query);
+      const res = await request<Array<{
+        id: string;
+        name: string;
+        email: string;
+        relationship: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'ACCEPTED';
+        requestId?: string;
+        joinedAt: string;
+      }>>(`/friends/search?q=${q}`, {
+        method: 'GET',
+      });
+      return {
+        success: res.success,
+        data: res.data,
+        message: res.message,
+      };
+    },
+
     async getTracker(userId: string, month?: string): Promise<{
       success: boolean;
       isLocked?: boolean;
@@ -367,3 +397,4 @@ export const api = {
     },
   },
 };
+

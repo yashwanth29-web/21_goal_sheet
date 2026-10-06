@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type {
   Goal,
   ScheduleSlot,
@@ -75,6 +75,9 @@ export function App() {
   const [editingSlot, setEditingSlot] = useState<ScheduleSlot | null>(null);
   const [isManageScheduleOpen, setIsManageScheduleOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [leaderboardInitialTab, setLeaderboardInitialTab] = useState<'leaderboard' | 'friends'>('leaderboard');
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const prevIncomingIdsRef = useRef<Set<string>>(new Set());
 
   const [noteModalData, setNoteModalData] = useState<{
     isOpen: boolean;
@@ -107,8 +110,46 @@ export function App() {
     setNotification({ message, type });
     setTimeout(() => {
       setNotification(null);
-    }, 3000);
+    }, 3500);
   }, []);
+
+  // Poll friend requests and notify user when new requests arrive
+  const checkFriendRequests = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await api.friends.getList();
+      if (res.success && res.data) {
+        const incoming = res.data.incomingRequests || [];
+        setPendingRequestsCount(incoming.length);
+
+        // Check if any new requests appeared that weren't known yet
+        const currentIds = new Set(incoming.map((r: any) => r.requestId));
+        const newRequests = incoming.filter((r: any) => !prevIncomingIdsRef.current.has(r.requestId));
+
+        if (newRequests.length > 0 && prevIncomingIdsRef.current.size > 0) {
+          newRequests.forEach((req: any) => {
+            notificationService.sendNotification(
+              '📩 New Friend Request Received',
+              `${req.from.name} sent you a friend request to connect on Daily Goals!`,
+              '👥'
+            );
+            showNotification(`📩 ${req.from.name} sent you a friend request!`, 'info');
+          });
+        }
+        prevIncomingIdsRef.current = currentIds;
+      }
+    } catch (err) {
+      console.warn('Failed to poll friend requests:', err);
+    }
+  }, [isAuthenticated, showNotification]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    checkFriendRequests();
+    const interval = setInterval(checkFriendRequests, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, checkFriendRequests]);
+
 
   // Update HTML class & theme
   useEffect(() => {
@@ -572,7 +613,15 @@ export function App() {
             setIsAddEditOpen(true);
           }}
           onManageSchedule={() => setIsManageScheduleOpen(true)}
-          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+          onOpenLeaderboard={() => {
+            setLeaderboardInitialTab('leaderboard');
+            setIsLeaderboardOpen(true);
+          }}
+          onOpenRequests={() => {
+            setLeaderboardInitialTab('friends');
+            setIsLeaderboardOpen(true);
+          }}
+          pendingRequestsCount={pendingRequestsCount}
           totalSlots={slots.length}
           theme={theme}
           onToggleTheme={handleToggleTheme}
@@ -582,7 +631,10 @@ export function App() {
         <Navigation
           activePage={activePage}
           onPageChange={setActivePage}
-          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+          onOpenLeaderboard={() => {
+            setLeaderboardInitialTab('leaderboard');
+            setIsLeaderboardOpen(true);
+          }}
           onManageSchedule={() => setIsManageScheduleOpen(true)}
           onAddGoal={() => {
             setEditingSlot(null);
@@ -768,6 +820,7 @@ export function App() {
         isOpen={isLeaderboardOpen}
         onClose={() => setIsLeaderboardOpen(false)}
         currentUserId={user?.id}
+        initialTab={leaderboardInitialTab}
       />
     </div>
   );

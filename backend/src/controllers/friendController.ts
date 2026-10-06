@@ -234,7 +234,7 @@ export async function getFriendsAndRequests(req: AuthRequest, res: Response): Pr
 export async function getFriendDetailedTracker(req: AuthRequest, res: Response): Promise<void> {
   try {
     const currentUserId = req.user?.id;
-    const targetUserId = req.params.userId;
+    const targetUserId = (req.params.userId || '') as string;
     const month = req.query.month as string; // Optional "YYYY-MM"
 
     if (!currentUserId) {
@@ -321,3 +321,95 @@ export async function getFriendDetailedTracker(req: AuthRequest, res: Response):
     res.status(500).json({ success: false, message: 'Failed to fetch friend tracker' });
   }
 }
+
+/**
+ * Search users to add as friends
+ */
+export async function searchUsers(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const currentUserId = req.user?.id;
+    const query = (req.query.q as string || '').trim().toLowerCase();
+
+    if (!currentUserId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    // Find all friendships involving current user
+    const friendships = await (prisma as any).friendship.findMany({
+      where: {
+        OR: [
+          { senderId: currentUserId },
+          { receiverId: currentUserId },
+        ],
+      },
+    });
+
+    const statusMap = new Map<string, { status: string; requestId: string; isSender: boolean }>();
+    friendships.forEach((f: any) => {
+      const otherId = f.senderId === currentUserId ? f.receiverId : f.senderId;
+      statusMap.set(otherId, {
+        status: f.status,
+        requestId: f.id,
+        isSender: f.senderId === currentUserId,
+      });
+    });
+
+    // Find matching users (exclude current user)
+    const userWhere: any = {
+      id: { not: currentUserId },
+    };
+
+    if (query.length > 0) {
+      userWhere.OR = [
+        { name: { contains: query, mode: 'insensitive' } },
+        { email: { contains: query, mode: 'insensitive' } },
+      ];
+    }
+
+    const foundUsers = await prisma.user.findMany({
+      where: userWhere,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      },
+      take: 25,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const results = foundUsers.map((u) => {
+      const fInfo = statusMap.get(u.id);
+      let relationship: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'ACCEPTED' = 'NONE';
+      let requestId: string | undefined = undefined;
+
+      if (fInfo) {
+        requestId = fInfo.requestId;
+        if (fInfo.status === 'ACCEPTED') {
+          relationship = 'ACCEPTED';
+        } else if (fInfo.status === 'PENDING') {
+          relationship = fInfo.isSender ? 'PENDING_SENT' : 'PENDING_RECEIVED';
+        }
+      }
+
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        relationship,
+        requestId,
+        joinedAt: u.createdAt.toISOString(),
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: results,
+    });
+  } catch (err: any) {
+    console.error('searchUsers error:', err);
+    res.status(500).json({ success: false, message: 'Failed to search users' });
+  }
+}
+
