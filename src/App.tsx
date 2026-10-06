@@ -206,7 +206,43 @@ export function App() {
     loadUserData();
   }, [loadUserData]);
 
-  // Automated Daily Notifications (Morning Briefing & Evening Wrap-up, strictly suppressed on Cheat Days)
+  // Real-Time Incoming Friend Request Listener & Instant Push Notifications
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let isMounted = true;
+    const checkFriendRequests = async () => {
+      try {
+        const res = await api.friends.getList();
+        if (isMounted && res.success && res.data) {
+          const incoming = res.data.incomingRequests || [];
+          setPendingRequestsCount(incoming.length);
+
+          // Alert on newly received friend requests
+          incoming.forEach((req: any) => {
+            if (!prevIncomingIdsRef.current.has(req.requestId)) {
+              if (prevIncomingIdsRef.current.size > 0) {
+                notificationService.notifyFriendRequestReceived(req.from?.name || 'A friend');
+              }
+            }
+          });
+
+          prevIncomingIdsRef.current = new Set(incoming.map((r: any) => r.requestId));
+        }
+      } catch (_err) {
+        // ignore
+      }
+    };
+
+    checkFriendRequests();
+    const interval = setInterval(checkFriendRequests, 15000); // Poll every 15s for instant updates
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
+
+  // Automated Daily Notifications (Per-slot Tanglish reminders, strictly suppressed on Cheat Days)
   useEffect(() => {
     if (!isAuthenticated || slots.length === 0) return;
 
@@ -215,7 +251,7 @@ export function App() {
 
     const interval = setInterval(() => {
       notificationService.checkAndSendDailyNotifications(todayKey, isTodayCheatDay, slots, statusRecords);
-    }, 60000);
+    }, 45000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {

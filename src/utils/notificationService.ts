@@ -1,12 +1,15 @@
 /**
  * Web Notification & PWA Push Reminder Service
- * Handles browser & Chrome installed app notifications for daily goals:
- * 1. Day Start / Morning: Overview of today's scheduled goals.
- * 2. Day End / Evening: Summary of completed goals vs target.
- * 3. Cheat Day / Holiday: Automatically suppresses all notifications on rest days.
+ * Features:
+ * 1. 100 Unique Non-Repeating Telugu-English (Tanglish) Hype Notifications
+ * 2. Per-Goal Slot Triggering: Reminds users right when their scheduled goal period starts.
+ * 3. Morning Briefing & Evening Wrap-up Streak Protection.
+ * 4. Instant Friend Request Alerts.
+ * 5. Automatic Cheat Day Suppression.
  */
 
 import type { Goal, StatusRecordsMap } from '../types';
+import { getSmartTanglishNotification } from './tanglishNotificationMessages';
 
 export const notificationService = {
   isSupported(): boolean {
@@ -29,8 +32,8 @@ export const notificationService = {
       if (permission === 'granted') {
         localStorage.setItem('goal_notifications_enabled', 'true');
         this.sendNotification(
-          '🔔 Goal Tracker Alerts Active!',
-          'You will receive morning goal briefings and evening progress summaries directly on your device!'
+          '🔥 Goal Tracker Alerts On Bro!',
+          'Prathi goal slot time ki neeku high-energy Telugu-English reminders vasthayi! Let’s crush the streak! 🎯'
         );
         return true;
       }
@@ -46,7 +49,7 @@ export const notificationService = {
     return this.isSupported() && Notification.permission === 'granted' && localStorage.getItem('goal_notifications_enabled') === 'true';
   },
 
-  sendNotification(title: string, body: string, _icon = '🎯'): void {
+  sendNotification(title: string, body: string, _icon = '/icon-192.png'): void {
     if (!this.isSupported() || Notification.permission !== 'granted') return;
 
     try {
@@ -56,7 +59,7 @@ export const notificationService = {
             body,
             icon: '/icon-192.png',
             badge: '/icon-192.png',
-            tag: 'daily-goal-alert',
+            tag: 'daily-goal-alert-' + Date.now(),
           });
         });
       } else {
@@ -71,11 +74,32 @@ export const notificationService = {
   },
 
   /**
-   * Automated Daily Notification Dispatcher:
-   * - Checks current hour.
-   * - Morning briefing (06:00 - 13:00): sends goal start overview if not yet sent today.
-   * - Evening wrap-up (18:00 - 23:59): sends completed count summary if not yet sent today.
-   * - IF CHEAT DAY: completely skips sending any notification.
+   * Helper: Parse slot start time into minutes from midnight (0..1439)
+   * Handles "06:00 AM - 07:00 AM", "6:00 AM", "14:30", etc.
+   */
+  parseSlotStartMinutes(timeSlotStr: string): number | null {
+    if (!timeSlotStr || typeof timeSlotStr !== 'string') return null;
+    const firstPart = timeSlotStr.split('-')[0].trim();
+    
+    // Match "HH:MM AM/PM" or "HH:MM"
+    const match = firstPart.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
+    if (!match) return null;
+
+    let hour = parseInt(match[1], 10);
+    const minute = match[2] ? parseInt(match[2], 10) : 0;
+    const meridian = match[3]?.toUpperCase();
+
+    if (meridian === 'PM' && hour < 12) hour += 12;
+    if (meridian === 'AM' && hour === 12) hour = 0;
+
+    return hour * 60 + minute;
+  },
+
+  /**
+   * Automated Daily & Per-Slot Notification Dispatcher
+   * - Checks active goal slots and triggers Telugu-English notifications when slot starts.
+   * - Sends morning kickstart and evening wrap-up.
+   * - Completely skips on Cheat Days.
    */
   checkAndSendDailyNotifications(
     todayKey: string,
@@ -85,83 +109,88 @@ export const notificationService = {
   ): void {
     if (!this.isEnabled()) return;
 
-    // 1. If today is a cheat day / holiday, DO NOT send notifications
+    // 1. If today is a cheat day / holiday, suppress notifications
     if (isCheatDay) {
       return;
     }
 
-    const currentHour = new Date().getHours();
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentHour = now.getHours();
+
+    // 2. Per-Goal Slot Trigger Check
+    slots.forEach((slot, index) => {
+      const taskName = slot.workGoal || slot.goalTitle || `Goal Slot ${index + 1}`;
+      const timeSlot = slot.time || (slot as any).timeSlot || 'Scheduled Time';
+      const slotMinutes = this.parseSlotStartMinutes(timeSlot);
+
+      if (slotMinutes !== null) {
+        // Trigger if current time is within [slotMinutes - 5, slotMinutes + 35] window and not yet triggered today
+        const slotKey = `notif_sent_${todayKey}_slot_${slot.id}`;
+        const isTriggerWindow = currentMinutes >= slotMinutes - 5 && currentMinutes <= slotMinutes + 35;
+
+        if (isTriggerWindow && !localStorage.getItem(slotKey)) {
+          localStorage.setItem(slotKey, 'true');
+          const notif = getSmartTanglishNotification(taskName, timeSlot);
+          this.sendNotification(notif.title, notif.body);
+        }
+      }
+    });
+
+    // 3. Morning Kickoff Briefing (06:00 - 09:30) if not sent
     const lastMorningDate = localStorage.getItem('last_morning_notif_date');
+    if (currentHour >= 6 && currentHour < 10 && lastMorningDate !== todayKey) {
+      localStorage.setItem('last_morning_notif_date', todayKey);
+      const firstSlot = slots[0];
+      const taskName = firstSlot?.workGoal || firstSlot?.goalTitle || 'Today Goals';
+      const notif = getSmartTanglishNotification(taskName, firstSlot?.time || (firstSlot as any)?.timeSlot || 'Morning', 'morning');
+      this.sendNotification(notif.title, notif.body);
+    }
+
+    // 4. Evening Wrap-Up & Streak Lock (20:00 - 23:59)
     const lastEveningDate = localStorage.getItem('last_evening_notif_date');
+    if (currentHour >= 20 && lastEveningDate !== todayKey) {
+      localStorage.setItem('last_evening_notif_date', todayKey);
+      let completed = 0;
+      slots.forEach((s) => {
+        const key = `${todayKey}_${s.id}`;
+        if (statusRecords[key]?.status === 'completed') completed++;
+      });
 
-    // 2. Day Start / Morning Notification (06:00 - 13:59)
-    if (currentHour >= 6 && currentHour < 14) {
-      if (lastMorningDate !== todayKey) {
-        localStorage.setItem('last_morning_notif_date', todayKey);
-
-        const totalGoals = slots.length;
-        if (totalGoals === 0) {
-          this.sendNotification(
-            '🌅 Good Morning!',
-            'Open your Daily Goal Tracker to plan your routine and start building your streak!'
-          );
-        } else {
-          const sampleGoalNames = slots
-            .slice(0, 3)
-            .map((s) => s.workGoal || s.goalTitle || 'Goal')
-            .join(', ');
-          const extra = slots.length > 3 ? ` and ${slots.length - 3} more` : '';
-
-          this.sendNotification(
-            `🌅 Morning Goal Briefing (${totalGoals} Scheduled)`,
-            `Today's targets: ${sampleGoalNames}${extra}. Let's make today 100% consistent! 🎯`
-          );
-        }
+      const totalGoals = slots.length;
+      if (completed === totalGoals && totalGoals > 0) {
+        this.sendNotification(
+          '🔥 Thaggedhe Le! 100% Goals Completed Today! 🏆',
+          `Rey macha, all ${totalGoals}/${totalGoals} goals complete chesav! Nuvvu true champion bro, streak locked! 🔥`
+        );
+      } else {
+        const lastSlot = slots.find((s) => statusRecords[`${todayKey}_${s.id}`]?.status !== 'completed') || slots[0];
+        const taskName = lastSlot?.workGoal || lastSlot?.goalTitle || 'Daily Goals';
+        const notif = getSmartTanglishNotification(taskName, 'Night', 'night');
+        this.sendNotification(notif.title, notif.body);
       }
     }
+  },
 
-    // 3. Day End / Evening Summary Notification (18:00 - 23:59)
-    if (currentHour >= 18) {
-      if (lastEveningDate !== todayKey) {
-        localStorage.setItem('last_evening_notif_date', todayKey);
+  /**
+   * Instant Friend Request Notification Trigger
+   */
+  notifyFriendRequestReceived(senderName: string): void {
+    if (!this.isEnabled()) return;
+    this.sendNotification(
+      '🔔 Kotta Friend Request Vachindi!',
+      `🔥 Rey macha, ${senderName} neeku friend request pampadu! Leaderboard lo connect ayyi competition modalu pettu! 🏆`
+    );
+  },
 
-        let completed = 0;
-        let partial = 0;
-        let missed = 0;
-
-        slots.forEach((s) => {
-          const key = `${todayKey}_${s.id}`;
-          const st = statusRecords[key]?.status;
-          if (st === 'completed') completed++;
-          else if (st === 'partial') partial++;
-          else if (st === 'missed') missed++;
-        });
-
-        const totalGoals = slots.length;
-
-        if (totalGoals > 0) {
-          if (completed === totalGoals) {
-            this.sendNotification(
-              '🎉 100% Goals Completed Today!',
-              `Outstanding consistency! You accomplished all ${totalGoals} of ${totalGoals} goals. Your streak is active! 🔥`,
-              '🏆'
-            );
-          } else if (completed > 0) {
-            const pct = Math.round(((completed + partial * 0.5) / totalGoals) * 100);
-            this.sendNotification(
-              `🌙 Evening Wrap-up: ${completed}/${totalGoals} Goals Completed (${pct}%)`,
-              `You completed ${completed} goals today. Check off any remaining tasks to protect your streak! ⚡`,
-              '📊'
-            );
-          } else {
-            this.sendNotification(
-              '🌙 Evening Check-in: Time to log today\'s progress!',
-              `You have ${totalGoals} goals scheduled for today. Update your daily status before the day ends! 🎯`,
-              '⏰'
-            );
-          }
-        }
-      }
-    }
+  /**
+   * Instant Friend Request Accepted Notification Trigger
+   */
+  notifyFriendRequestAccepted(friendName: string): void {
+    if (!this.isEnabled()) return;
+    this.sendNotification(
+      '🎉 Friend Request Accepted!',
+      `🔥 Super bro! ${friendName} mee friend request accept chesadu! Ippudu iddaru kalisi daily goals track cheskondi! 🎯`
+    );
   },
 };

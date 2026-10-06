@@ -395,6 +395,17 @@ export const api = {
         message: res.data?.message || res.message,
       };
     },
+
+    async remove(params: { friendshipId?: string; targetUserId?: string }): Promise<{ success: boolean; message?: string }> {
+      const res = await request<{ message: string }>('/friends/remove', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      return {
+        success: res.success,
+        message: res.data?.message || res.message,
+      };
+    },
   },
 };
 

@@ -152,6 +152,67 @@ export async function respondFriendRequest(req: AuthRequest, res: Response): Pro
 }
 
 /**
+ * Unfriend / Remove or Cancel a friend connection
+ */
+export async function removeFriend(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const currentUserId = req.user?.id;
+    const { friendshipId, targetUserId } = req.body;
+
+    if (!currentUserId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    if (!friendshipId && !targetUserId) {
+      res.status(400).json({ success: false, message: 'Either friendshipId or targetUserId is required' });
+      return;
+    }
+
+    let friendship = null;
+    if (friendshipId) {
+      friendship = await (prisma as any).friendship.findUnique({
+        where: { id: friendshipId },
+      });
+    } else if (targetUserId) {
+      friendship = await (prisma as any).friendship.findFirst({
+        where: {
+          OR: [
+            { senderId: currentUserId, receiverId: targetUserId },
+            { senderId: targetUserId, receiverId: currentUserId },
+          ],
+        },
+      });
+    }
+
+    if (!friendship) {
+      res.status(404).json({ success: false, message: 'Friendship connection not found' });
+      return;
+    }
+
+    // Verify current user is part of the friendship
+    if (friendship.senderId !== currentUserId && friendship.receiverId !== currentUserId) {
+      res.status(403).json({ success: false, message: 'You are not authorized to modify this friendship' });
+      return;
+    }
+
+    // Delete the friendship entry so users can reconnect later if desired
+    await (prisma as any).friendship.delete({
+      where: { id: friendship.id },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Friend removed successfully',
+      removedFriendshipId: friendship.id,
+    });
+  } catch (err: any) {
+    console.error('removeFriend error:', err);
+    res.status(500).json({ success: false, message: 'Failed to remove friend' });
+  }
+}
+
+/**
  * Get all friends and pending incoming/outgoing requests
  */
 export async function getFriendsAndRequests(req: AuthRequest, res: Response): Promise<void> {
