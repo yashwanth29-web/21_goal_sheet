@@ -57,11 +57,19 @@ export type StatusRecordsMap = Record<string, CellStatusRecord>;
 
 export interface MonthStatistics {
   totalGoals: number;
+  totalDays: number;
+  activeDays: number;
+  cheatDaysCount: number;
   completed: number;
   partial: number;
   missed: number;
   unselected: number;
   achievementRate: number; // percentage (0-100)
+}
+
+export interface CheatDayRecord {
+  date: string;
+  reason?: string;
 }
 
 export interface AppFilterState {

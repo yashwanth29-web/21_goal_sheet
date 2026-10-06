@@ -8,6 +8,8 @@ import {
   updateGoalStatus,
   batchUpdateStatus,
   reorderGoals,
+  getCheatDays,
+  toggleCheatDay,
 } from '../controllers/goalController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -26,5 +28,9 @@ router.delete('/:id', deleteGoal);
 router.get('/statuses', getStatuses);
 router.put('/:id/status', updateGoalStatus);
 router.post('/batch-status', batchUpdateStatus);
+
+// Cheat Day / Holiday routes
+router.get('/cheat-days', getCheatDays);
+router.post('/cheat-days/toggle', toggleCheatDay);
 
 export default router;

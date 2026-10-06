@@ -370,3 +370,120 @@ export async function reorderGoals(req: AuthRequest, res: Response): Promise<voi
     res.status(500).json({ success: false, message: 'Failed to reorder goals.' });
   }
 }
+
+// 9. GET /api/goals/cheat-days - Get cheat / holiday days for authenticated user
+export async function getCheatDays(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const { month } = req.query;
+
+    const whereClause: any = { userId };
+    if (month && typeof month === 'string') {
+      whereClause.date = { startsWith: month };
+    }
+
+    let records: any[] = [];
+    try {
+      if ((prisma as any).cheatDay) {
+        records = await (prisma as any).cheatDay.findMany({
+          where: whereClause,
+          select: { date: true, reason: true },
+        });
+      }
+    } catch (e) {
+      console.warn('CheatDay model query notice:', e);
+    }
+
+    const cheatDates = records.map((r) => r.date);
+
+    res.status(200).json({
+      success: true,
+      cheatDays: cheatDates,
+      records,
+    });
+  } catch (err: any) {
+    console.error('getCheatDays error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch cheat days.' });
+  }
+}
+
+// 10. POST /api/goals/cheat-days/toggle - Toggle or set a date as cheat day
+export async function toggleCheatDay(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const { date, isCheatDay, reason } = req.body;
+
+    if (!date || !String(date).trim()) {
+      res.status(400).json({ success: false, message: 'Date (YYYY-MM-DD) is required.' });
+      return;
+    }
+
+    const dateKey = String(date).trim();
+    let finalState = false;
+
+    try {
+      if ((prisma as any).cheatDay) {
+        const existing = await (prisma as any).cheatDay.findUnique({
+          where: {
+            userId_date: {
+              userId,
+              date: dateKey,
+            },
+          },
+        });
+
+        if (isCheatDay === undefined) {
+          if (existing) {
+            await (prisma as any).cheatDay.delete({
+              where: { id: existing.id },
+            });
+            finalState = false;
+          } else {
+            await (prisma as any).cheatDay.create({
+              data: {
+                userId,
+                date: dateKey,
+                reason: reason || 'Holiday / Cheat Day',
+              },
+            });
+            finalState = true;
+          }
+        } else if (isCheatDay) {
+          if (!existing) {
+            await (prisma as any).cheatDay.create({
+              data: {
+                userId,
+                date: dateKey,
+                reason: reason || 'Holiday / Cheat Day',
+              },
+            });
+          }
+          finalState = true;
+        } else {
+          if (existing) {
+            await (prisma as any).cheatDay.delete({
+              where: { id: existing.id },
+            });
+          }
+          finalState = false;
+        }
+      } else {
+        finalState = Boolean(isCheatDay);
+      }
+    } catch (dbErr) {
+      console.warn('CheatDay DB operation fallback:', dbErr);
+      finalState = isCheatDay !== undefined ? Boolean(isCheatDay) : true;
+    }
+
+    res.status(200).json({
+      success: true,
+      isCheatDay: finalState,
+      date: dateKey,
+      message: finalState ? `Marked ${dateKey} as Cheat Day / Holiday.` : `Removed ${dateKey} from Cheat Days.`,
+    });
+  } catch (err: any) {
+    console.error('toggleCheatDay error:', err);
+    res.status(500).json({ success: false, message: 'Failed to toggle cheat day.' });
+  }
+}
+

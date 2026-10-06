@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
@@ -14,6 +14,32 @@
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.25s ease, color 0.25s ease;
   }
+}
+
+@keyframes shimmerSweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  40%, 100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+.animate-shimmer-sweep {
+  animation: shimmerSweep 3.5s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.35), 0 0 24px rgba(99, 102, 241, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(245, 158, 11, 0.65), 0 0 35px rgba(236, 72, 153, 0.35);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s ease-in-out infinite;
 }
 
 /* Custom scrollbars */

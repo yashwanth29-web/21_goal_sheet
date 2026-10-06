@@ -1,4 +1,4 @@
-import type { Goal, GoalStatus, User, AuthResponse, LeaderboardUser, LeaderboardResponse } from '../types';
+import type { Goal, GoalStatus, User, AuthResponse, LeaderboardResponse } from '../types';
 
 function getApiBaseUrl(): string {
   const envUrl = (import.meta as any).env?.VITE_API_URL;
@@ -60,7 +60,22 @@ async function request<T = any>(
       headers,
     });
 
-    const data = await res.json().catch(() => ({}));
+    const contentType = res.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+
+    if (!isJson) {
+      // The server returned HTML (likely Vercel routing to index.html due to missing API route/VITE_API_URL)
+      const text = await res.text().catch(() => '');
+      if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+        return {
+          success: false,
+          message:
+            'Backend API route not reached (received HTML page). If deployed on Vercel, please ensure VITE_API_URL is configured in your project settings to point to your backend API URL.',
+        };
+      }
+    }
+
+    const data = isJson ? await res.json().catch(() => ({})) : {};
 
     if (!res.ok) {
       return {
@@ -232,6 +247,34 @@ export const api = {
       });
       return {
         success: res.success,
+        message: res.data?.message || res.message,
+      };
+    },
+
+    async getCheatDays(month?: string): Promise<{ success: boolean; cheatDays: string[]; message?: string }> {
+      const query = month ? `?month=${encodeURIComponent(month)}` : '';
+      const res = await request<{ cheatDays: string[] }>(`/goals/cheat-days${query}`, {
+        method: 'GET',
+      });
+      return {
+        success: res.success,
+        cheatDays: res.data?.cheatDays || [],
+        message: res.message,
+      };
+    },
+
+    async toggleCheatDay(
+      date: string,
+      isCheatDay?: boolean,
+      reason?: string
+    ): Promise<{ success: boolean; isCheatDay: boolean; message?: string }> {
+      const res = await request<{ isCheatDay: boolean; message: string }>('/goals/cheat-days/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ date, isCheatDay, reason }),
+      });
+      return {
+        success: res.success,
+        isCheatDay: res.data?.isCheatDay ?? false,
         message: res.data?.message || res.message,
       };
     },

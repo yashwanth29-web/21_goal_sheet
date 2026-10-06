@@ -18,6 +18,7 @@ import {
 } from './utils/dateUtils';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
+import { notificationService } from './utils/notificationService';
 import { Header } from './components/Header';
 import { Statistics } from './components/Statistics';
 import { TodayHighlight } from './components/TodayHighlight';
@@ -51,6 +52,14 @@ export function App() {
   // Goal & Status State (Fetched from PostgreSQL API)
   const [slots, setSlots] = useState<Goal[]>([]);
   const [statusRecords, setStatusRecords] = useState<StatusRecordsMap>({});
+  const [cheatDays, setCheatDays] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('goal_tracker_cheat_days');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [isDataLoading, setIsDataLoading] = useState(false);
 
   // Filter state
@@ -116,15 +125,16 @@ export function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Fetch Goals and Monthly Statuses from PostgreSQL via Backend API
+  // Fetch Goals, Monthly Statuses, and Cheat Days from PostgreSQL via Backend API
   const loadUserData = useCallback(async () => {
     if (!isAuthenticated) return;
     setIsDataLoading(true);
     try {
       const monthStr = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}`;
-      const [goalsRes, statusesRes] = await Promise.all([
+      const [goalsRes, statusesRes, cheatRes] = await Promise.all([
         api.goals.getAll(),
         api.goals.getStatuses(monthStr),
+        api.goals.getCheatDays(monthStr),
       ]);
 
       if (goalsRes.success) {
@@ -132,6 +142,14 @@ export function App() {
       }
       if (statusesRes.success) {
         setStatusRecords(statusesRes.statuses as StatusRecordsMap);
+      }
+      if (cheatRes.success && Array.isArray(cheatRes.cheatDays)) {
+        setCheatDays((prev) => {
+          const next = new Set(prev);
+          cheatRes.cheatDays.forEach((d) => next.add(d));
+          localStorage.setItem('goal_tracker_cheat_days', JSON.stringify(Array.from(next)));
+          return next;
+        });
       }
     } catch (err) {
       console.error('Failed to load user calendar data:', err);
@@ -143,6 +161,30 @@ export function App() {
   useEffect(() => {
     loadUserData();
   }, [loadUserData]);
+
+  // Automated Daily Notifications (Morning Briefing & Evening Wrap-up, strictly suppressed on Cheat Days)
+  useEffect(() => {
+    if (!isAuthenticated || slots.length === 0) return;
+
+    const isTodayCheatDay = cheatDays.has(todayKey);
+    notificationService.checkAndSendDailyNotifications(todayKey, isTodayCheatDay, slots, statusRecords);
+
+    const interval = setInterval(() => {
+      notificationService.checkAndSendDailyNotifications(todayKey, isTodayCheatDay, slots, statusRecords);
+    }, 60000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        notificationService.checkAndSendDailyNotifications(todayKey, isTodayCheatDay, slots, statusRecords);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, todayKey, cheatDays, slots, statusRecords]);
 
   const daysInMonth = useMemo(() => {
     return getDaysInMonth(currentYear, currentMonthIndex, todayDate);
@@ -191,9 +233,11 @@ export function App() {
     let missed = 0;
     let unselected = 0;
 
-    const totalScheduled = daysInMonth.length * slots.length;
+    // Filter out cheat days so they are excluded from the target calculation
+    const activeDays = daysInMonth.filter((day) => !cheatDays.has(day.dateKey));
+    const totalScheduled = activeDays.length * slots.length;
 
-    daysInMonth.forEach((day) => {
+    activeDays.forEach((day) => {
       slots.forEach((slot) => {
         const key = `${day.dateKey}_${slot.id}`;
         const st = statusRecords[key]?.status || 'none';
@@ -205,17 +249,24 @@ export function App() {
     });
 
     const tracked = completed + partial + missed;
-    const achievementRate = tracked > 0 ? Math.round(((completed + partial * 0.5) / tracked) * 100) : 0;
+    const achievementRate = totalScheduled > 0
+      ? Math.round(((completed + partial * 0.5) / totalScheduled) * 100)
+      : tracked > 0
+      ? Math.round(((completed + partial * 0.5) / tracked) * 100)
+      : 0;
 
     return {
       totalGoals: totalScheduled,
+      totalDays: daysInMonth.length,
+      activeDays: activeDays.length,
+      cheatDaysCount: daysInMonth.length - activeDays.length,
       completed,
       partial,
       missed,
       unselected,
       achievementRate,
     };
-  }, [daysInMonth, slots, statusRecords]);
+  }, [daysInMonth, slots, statusRecords, cheatDays]);
 
   // Handle Goal Status Change with Optimistic UI and PostgreSQL Sync
   const handleStatusChange = useCallback(async (dateKey: string, slotId: string, newStatus: GoalStatus) => {
@@ -283,6 +334,30 @@ export function App() {
     // PostgreSQL Batch Sync
     await api.goals.batchStatus(dateKey, 'none');
   }, [slots, showNotification]);
+
+  const handleToggleCheatDay = useCallback(async (dateKey: string) => {
+    const isCurrentlyCheat = cheatDays.has(dateKey);
+    const newCheatState = !isCurrentlyCheat;
+
+    setCheatDays((prev) => {
+      const updated = new Set(prev);
+      if (newCheatState) {
+        updated.add(dateKey);
+      } else {
+        updated.delete(dateKey);
+      }
+      localStorage.setItem('goal_tracker_cheat_days', JSON.stringify(Array.from(updated)));
+      return updated;
+    });
+
+    if (newCheatState) {
+      showNotification(`🌴 Marked ${dateKey} as Cheat Day / Holiday (Excluded from target goals)!`, 'info');
+    } else {
+      showNotification(`☀️ Restored ${dateKey} as Active Goal Day!`, 'success');
+    }
+
+    await api.goals.toggleCheatDay(dateKey, newCheatState);
+  }, [cheatDays, showNotification]);
 
   const handleSaveSlot = async (slotData: Omit<ScheduleSlot, 'id' | 'order'> & { id?: string }) => {
     const title = slotData.workGoal || slotData.goalTitle || 'Untitled Goal';
@@ -508,9 +583,10 @@ export function App() {
           todayDay={todayDay}
           slots={slots}
           statusRecords={statusRecords}
+          isCheatDay={cheatDays.has(todayDay.dateKey)}
+          onToggleCheatDay={() => handleToggleCheatDay(todayDay.dateKey)}
           onJumpToToday={handleGoToday}
           onMarkAllTodayCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
-          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
         />
 
         {/* 4. Calendar Toolbar (Month navigation & Filters) */}
@@ -566,6 +642,8 @@ export function App() {
             days={daysInMonth}
             slots={filteredSlots}
             statusRecords={statusRecords}
+            cheatDays={cheatDays}
+            onToggleCheatDay={handleToggleCheatDay}
             onStatusChange={handleStatusChange}
             onEditSlot={(slot) => {
               setEditingSlot(slot);

@@ -10,7 +10,9 @@ import {
   ShieldCheck,
   ChevronDown,
   Trophy,
+  Bell,
 } from 'lucide-react';
+import { notificationService } from '../utils/notificationService';
 
 interface HeaderProps {
   user: User;
@@ -118,6 +120,24 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
+        {/* Notifications / Reminders Toggle Button */}
+        <button
+          type="button"
+          onClick={async () => {
+            const granted = await notificationService.requestPermission();
+            if (granted) {
+              alert('🔔 Reminders Enabled! You will receive daily goal reminders directly on your device.');
+            } else if (Notification.permission === 'denied') {
+              alert('⚠️ Notifications are blocked in your browser settings. Please click the site settings lock icon in your URL bar to allow notifications.');
+            }
+          }}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-sm transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+          title="Enable Daily Goal Reminders & Push Notifications (Works with Chrome App installer)"
+        >
+          <Bell className="w-4 h-4 text-amber-500" />
+          <span className="hidden sm:inline">Alerts</span>
+        </button>
+
         {/* Theme Toggle Button (Light / Dark) */}
         <button
           type="button"
@@ -138,25 +158,40 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* Live Rankings / Leaderboard Button */}
+        {/* Hyper Eye-Catching & Magnetic "Live Leaderboard" Button */}
         <button
           type="button"
           onClick={onOpenLeaderboard}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/20 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 dark:from-amber-500/20 dark:via-amber-500/30 dark:to-orange-500/20 border border-amber-300/80 dark:border-amber-500/50 text-amber-900 dark:text-amber-300 text-xs font-extrabold shadow-sm transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-          title="View Live User Rankings, Today & Monthly Achievement Rates, and Streaks"
+          className="relative group/lb flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 text-white text-xs font-black shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 animate-pulse-glow overflow-hidden"
+          title="🔥 Check Live Rankings, Today & Monthly Consistency, and Active Streaks!"
         >
-          <div className="relative flex items-center">
-            <Trophy className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+          {/* Animated Light Sweep Effect */}
+          <div className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/35 to-transparent -skew-x-12 animate-shimmer-sweep pointer-events-none" />
+
+          {/* Trophy Icon with floating spark */}
+          <div className="relative flex items-center shrink-0">
+            <Trophy className="w-4 h-4 text-amber-100 group-hover/lb:rotate-12 transition-transform duration-200 drop-shadow" />
           </div>
-          <span>Live Rankings</span>
+
+          <span className="tracking-tight text-white drop-shadow-sm font-extrabold whitespace-nowrap">
+            🏆 Live Leaderboard
+          </span>
+
+          {/* Glowing Green LIVE Indicator Badge */}
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-950/40 border border-white/20 text-[9px] font-black uppercase tracking-wider text-emerald-300 shrink-0">
+            <span className="flex h-1.5 w-1.5 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+            </span>
+            <span>LIVE</span>
+          </span>
         </button>
 
         {/* Manage Routine Button */}
         <button
           type="button"
           onClick={onManageSchedule}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-sm transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-sm transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
           title="Manage timetable time slots"
         >
           <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -167,10 +202,10 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={onAddGoal}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+          className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Add Goal</span>
+          <span>Add Goal</span>
         </button>
       </div>
     </header>

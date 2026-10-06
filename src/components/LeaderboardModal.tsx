@@ -25,6 +25,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 }) => {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('monthly');
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
@@ -32,14 +33,20 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
   const fetchLeaderboard = async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const res = await api.leaderboard.get();
-      if (res.success && res.data) {
+      if (res.success && res.data && res.data.length > 0) {
         setUsers(res.data);
         setLastRefreshed(new Date());
+      } else if (!res.success) {
+        setErrorMessage(res.message || 'Failed to connect to live rankings server.');
+      } else {
+        setUsers(res.data || []);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load leaderboard:', err);
+      setErrorMessage(err.message || 'Failed to load leaderboard. Check your network or API settings.');
     } finally {
       setIsLoading(false);
     }
@@ -246,9 +253,32 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
               <span className="text-xs font-semibold">Loading live rankings...</span>
             </div>
+          ) : errorMessage ? (
+            <div className="py-10 px-4 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/50 flex items-center justify-center mx-auto text-amber-600 dark:text-amber-400 text-xl">
+                ⚠️
+              </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Unable to connect to live rankings
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {errorMessage}
+                </p>
+              </div>
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={fetchLeaderboard}
+                  className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
           ) : sortedAndFilteredUsers.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400">
-              No participants found matching "{searchQuery}".
+              {searchQuery ? `No participants found matching "${searchQuery}".` : 'No participants found yet.'}
             </div>
           ) : (
             sortedAndFilteredUsers.map((u, idx) => {

@@ -30,8 +30,23 @@ model User {
   updatedAt     DateTime      @updatedAt
   goals         Goal[]
   dailyStatuses DailyStatus[]
+  cheatDays     CheatDay[]
 
   @@map("users")
+}
+
+model CheatDay {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      String   // "YYYY-MM-DD"
+  reason    String?  @default("Holiday / Cheat Day")
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@map("cheat_days")
 }
 
 model Goal {

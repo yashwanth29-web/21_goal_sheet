@@ -16,7 +16,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ stats, monthName }) => {
       <div className="glass-card rounded-2xl p-4 border border-slate-200 dark:border-slate-800/80 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all bg-white dark:bg-slate-900/50">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Total Goals
+            Target Goals
           </span>
           <span className="p-2 rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800/80 dark:text-slate-300">
             <Target className="w-4 h-4" />
@@ -28,8 +28,16 @@ export const Statistics: React.FC<StatisticsProps> = ({ stats, monthName }) => {
           </span>
           <span className="text-[11px] text-slate-500 dark:text-slate-400">in {monthName}</span>
         </div>
-        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-          <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{trackedCount}</span> tracked so far
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          {stats.cheatDaysCount > 0 ? (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-semibold text-[10px]">
+              🌴 {stats.cheatDaysCount} Cheat {stats.cheatDaysCount === 1 ? 'Day' : 'Days'} Excluded ({stats.activeDays} Active)
+            </span>
+          ) : (
+            <span>
+              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{trackedCount}</span> tracked so far
+            </span>
+          )}
         </div>
       </div>
 

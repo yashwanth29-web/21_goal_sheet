@@ -8,6 +8,8 @@ interface WorkCalendarProps {
   days: CalendarDay[];
   slots: ScheduleSlot[];
   statusRecords: StatusRecordsMap;
+  cheatDays?: Set<string>;
+  onToggleCheatDay?: (dateKey: string) => void;
   onStatusChange: (dateKey: string, slotId: string, newStatus: GoalStatus) => void;
   onEditSlot: (slot: ScheduleSlot) => void;
   onDeleteSlot: (slot: ScheduleSlot) => void;
@@ -36,6 +38,8 @@ export const WorkCalendar: React.FC<WorkCalendarProps> = ({
   days,
   slots,
   statusRecords,
+  cheatDays,
+  onToggleCheatDay,
   onStatusChange,
   onEditSlot,
   onDeleteSlot,
@@ -184,6 +188,8 @@ export const WorkCalendar: React.FC<WorkCalendarProps> = ({
                 day={day}
                 slots={slots}
                 statusRecords={statusRecords}
+                isCheatDay={cheatDays?.has(day.dateKey) ?? false}
+                onToggleCheatDay={onToggleCheatDay}
                 onStatusChange={onStatusChange}
                 onEditSlot={onEditSlot}
                 onDeleteSlot={onDeleteSlot}
