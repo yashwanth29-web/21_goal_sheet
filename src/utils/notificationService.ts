@@ -50,18 +50,29 @@ export const notificationService = {
   },
 
   sendNotification(title: string, body: string, _icon = '/icon-192.png'): void {
-    if (!this.isSupported() || Notification.permission !== 'granted') return;
+    if (!this.isSupported() || Notification.permission !== 'granted') {
+      console.warn('Cannot send notification: permission not granted or unsupported', Notification.permission);
+      return;
+    }
 
     try {
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.showNotification(title, {
-            body,
-            icon: '/icon-192.png',
-            badge: '/icon-192.png',
-            tag: 'daily-goal-alert-' + Date.now(),
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+          .then((registration) => {
+            registration.showNotification(title, {
+              body,
+              icon: '/icon-192.png',
+              badge: '/icon-192.png',
+              vibrate: [200, 100, 200],
+              tag: 'daily-goal-alert-' + Date.now(),
+            } as any);
+          })
+          .catch(() => {
+            new Notification(title, {
+              body,
+              icon: '/icon-192.png',
+            });
           });
-        });
       } else {
         new Notification(title, {
           body,
@@ -69,7 +80,12 @@ export const notificationService = {
         });
       }
     } catch (err) {
-      console.warn('Notification dispatch notice:', err);
+      console.warn('Notification dispatch error, trying fallback:', err);
+      try {
+        new Notification(title, { body, icon: '/icon-192.png' });
+      } catch (_e) {
+        // ignore
+      }
     }
   },
 

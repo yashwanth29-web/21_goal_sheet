@@ -185,7 +185,25 @@ export function App() {
         setSlots(sortSlotsByTime(goalsRes.goals));
       }
       if (statusesRes.success) {
-        setStatusRecords(statusesRes.statuses as StatusRecordsMap);
+        let merged = { ...(statusesRes.statuses as StatusRecordsMap) };
+        try {
+          const raw = localStorage.getItem('cached_status_records');
+          if (raw) {
+            const localCached = JSON.parse(raw);
+            Object.keys(localCached).forEach((k) => {
+              if (
+                !merged[k] ||
+                new Date(localCached[k]?.updatedAt || 0).getTime() >=
+                  new Date(merged[k]?.updatedAt || 0).getTime()
+              ) {
+                merged[k] = localCached[k];
+              }
+            });
+          }
+        } catch (_e) {
+          // ignore
+        }
+        setStatusRecords(merged);
       }
       if (cheatRes.success && Array.isArray(cheatRes.cheatDays)) {
         setCheatDays((prev) => {
@@ -206,7 +224,7 @@ export function App() {
     loadUserData();
   }, [loadUserData]);
 
-  // Real-Time Incoming Friend Request Listener & Instant Push Notifications
+  // Real-Time Incoming & Accepted Friend Request Listener & Instant Push Notifications
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -216,18 +234,61 @@ export function App() {
         const res = await api.friends.getList();
         if (isMounted && res.success && res.data) {
           const incoming = res.data.incomingRequests || [];
+          const friendsList = res.data.friends || [];
           setPendingRequestsCount(incoming.length);
 
-          // Alert on newly received friend requests
+          // 1. Check for new incoming friend requests
+          let seenIncoming: string[] = [];
+          try {
+            const raw = localStorage.getItem('seen_incoming_friend_reqs');
+            if (raw) seenIncoming = JSON.parse(raw);
+          } catch (_e) {
+            seenIncoming = [];
+          }
+          const seenIncomingSet = new Set(seenIncoming);
+
           incoming.forEach((req: any) => {
-            if (!prevIncomingIdsRef.current.has(req.requestId)) {
-              if (prevIncomingIdsRef.current.size > 0) {
-                notificationService.notifyFriendRequestReceived(req.from?.name || 'A friend');
-              }
+            if (!seenIncomingSet.has(req.requestId)) {
+              seenIncomingSet.add(req.requestId);
+              const senderName = req.from?.name || 'A friend';
+              notificationService.notifyFriendRequestReceived(senderName);
+              setNotification({
+                type: 'success',
+                message: `🔔 Kotta Friend Request from ${senderName}!`,
+              });
             }
           });
+          localStorage.setItem('seen_incoming_friend_reqs', JSON.stringify(Array.from(seenIncomingSet)));
 
-          prevIncomingIdsRef.current = new Set(incoming.map((r: any) => r.requestId));
+          // 2. Check for newly accepted friends (so sender gets notified when request is accepted!)
+          let seenAccepted: string[] = [];
+          try {
+            const raw = localStorage.getItem('seen_accepted_friends');
+            if (raw) seenAccepted = JSON.parse(raw);
+          } catch (_e) {
+            seenAccepted = [];
+          }
+          const seenAcceptedSet = new Set(seenAccepted);
+
+          const isFirstFriendCheck = !localStorage.getItem('seen_accepted_friends_init');
+          if (isFirstFriendCheck) {
+            friendsList.forEach((f: any) => seenAcceptedSet.add(f.friendshipId));
+            localStorage.setItem('seen_accepted_friends_init', 'true');
+            localStorage.setItem('seen_accepted_friends', JSON.stringify(Array.from(seenAcceptedSet)));
+          } else {
+            friendsList.forEach((f: any) => {
+              if (!seenAcceptedSet.has(f.friendshipId)) {
+                seenAcceptedSet.add(f.friendshipId);
+                const friendName = f.friend?.name || 'Your friend';
+                notificationService.notifyFriendRequestAccepted(friendName);
+                setNotification({
+                  type: 'success',
+                  message: `🎉 ${friendName} accepted your friend request!`,
+                });
+              }
+            });
+            localStorage.setItem('seen_accepted_friends', JSON.stringify(Array.from(seenAcceptedSet)));
+          }
         }
       } catch (_err) {
         // ignore
@@ -235,7 +296,7 @@ export function App() {
     };
 
     checkFriendRequests();
-    const interval = setInterval(checkFriendRequests, 15000); // Poll every 15s for instant updates
+    const interval = setInterval(checkFriendRequests, 6000); // Fast 6s polling for instant alerts
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -353,40 +414,62 @@ export function App() {
     const key = `${dateKey}_${slotId}`;
     const previous = statusRecords[key];
 
-    // Optimistic Update
+    // Optimistic Update & Permanent Local Lock
+    const timestamp = new Date().toISOString();
+    const updatedRecord = {
+      ...(statusRecords[key] || { id: `${dateKey}_${slotId}` }),
+      status: newStatus,
+      updatedAt: timestamp,
+    };
+
     setStatusRecords((prev) => ({
       ...prev,
-      [key]: {
-        ...prev[key],
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-      },
+      [key]: updatedRecord,
     }));
+
+    try {
+      const raw = localStorage.getItem('cached_status_records');
+      const cache = raw ? JSON.parse(raw) : {};
+      cache[key] = updatedRecord;
+      localStorage.setItem('cached_status_records', JSON.stringify(cache));
+    } catch (_e) {
+      // ignore
+    }
 
     // Server Call
     const res = await api.goals.updateStatus(slotId, dateKey, newStatus, previous?.note);
     if (!res.success) {
-      showNotification(res.message || 'Failed to update status', 'info');
-      // Revert if error
-      if (previous) {
-        setStatusRecords((prev) => ({ ...prev, [key]: previous }));
-      }
+      showNotification(res.message || 'Status saved locally. Cloud sync pending.', 'info');
     }
   }, [statusRecords, showNotification]);
 
   const handleMarkAllDayCompleted = useCallback(async (dateKey: string) => {
-    // Optimistic update
+    const timestamp = new Date().toISOString();
+    // Optimistic update & cache lock
     setStatusRecords((prev) => {
       const updated = { ...prev };
       slots.forEach((slot) => {
         const key = `${dateKey}_${slot.id}`;
-        const existing = updated[key] || { status: 'none' };
+        const existing = updated[key] || { id: key, status: 'none' };
         updated[key] = {
           ...existing,
           status: 'completed',
-          updatedAt: new Date().toISOString(),
+          updatedAt: timestamp,
         };
       });
+
+      try {
+        const raw = localStorage.getItem('cached_status_records');
+        const cache = raw ? JSON.parse(raw) : {};
+        slots.forEach((slot) => {
+          const key = `${dateKey}_${slot.id}`;
+          cache[key] = updated[key];
+        });
+        localStorage.setItem('cached_status_records', JSON.stringify(cache));
+      } catch (_e) {
+        // ignore
+      }
+
       return updated;
     });
     showNotification(`Marked all goals for ${dateKey} as Completed!`);
@@ -396,17 +479,31 @@ export function App() {
   }, [slots, showNotification]);
 
   const handleResetDayStatuses = useCallback(async (dateKey: string) => {
+    const timestamp = new Date().toISOString();
     setStatusRecords((prev) => {
       const updated = { ...prev };
       slots.forEach((slot) => {
         const key = `${dateKey}_${slot.id}`;
-        if (updated[key]) {
-          updated[key] = {
-            ...updated[key],
-            status: 'none',
-          };
-        }
+        const existing = updated[key] || { id: key, status: 'none' };
+        updated[key] = {
+          ...existing,
+          status: 'none',
+          updatedAt: timestamp,
+        };
       });
+
+      try {
+        const raw = localStorage.getItem('cached_status_records');
+        const cache = raw ? JSON.parse(raw) : {};
+        slots.forEach((slot) => {
+          const key = `${dateKey}_${slot.id}`;
+          cache[key] = updated[key];
+        });
+        localStorage.setItem('cached_status_records', JSON.stringify(cache));
+      } catch (_e) {
+        // ignore
+      }
+
       return updated;
     });
     showNotification(`Reset all goal statuses for ${dateKey}.`, 'info');
