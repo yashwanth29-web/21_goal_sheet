@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { AppTheme, User } from '../types';
 import {
-  CalendarDays,
   Plus,
   SlidersHorizontal,
   LogOut,
@@ -60,9 +59,11 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="w-full flex items-center justify-between gap-2">
         {/* Brand Logo & Name (Guaranteed Single Line, No Awkward Wrap) */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/30 shrink-0">
-            <CalendarDays className="w-5 h-5" />
-          </div>
+          <img
+            src="/icon-192.png"
+            alt="Daily Work Tracker"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-md shadow-indigo-600/20 shrink-0 object-contain bg-white"
+          />
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">

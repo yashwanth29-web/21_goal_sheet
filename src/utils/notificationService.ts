@@ -46,7 +46,7 @@ export const notificationService = {
     return this.isSupported() && Notification.permission === 'granted' && localStorage.getItem('goal_notifications_enabled') === 'true';
   },
 
-  sendNotification(title: string, body: string, icon = '🎯'): void {
+  sendNotification(title: string, body: string, _icon = '🎯'): void {
     if (!this.isSupported() || Notification.permission !== 'granted') return;
 
     try {
@@ -54,15 +54,15 @@ export const notificationService = {
         navigator.serviceWorker.ready.then((registration) => {
           registration.showNotification(title, {
             body,
-            icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>' + icon + '</text></svg>',
-            badge: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>',
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
             tag: 'daily-goal-alert',
           });
         });
       } else {
         new Notification(title, {
           body,
-          icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>' + icon + '</text></svg>',
+          icon: '/icon-192.png',
         });
       }
     } catch (err) {
