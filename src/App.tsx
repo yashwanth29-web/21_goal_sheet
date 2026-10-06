@@ -20,6 +20,7 @@ import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { notificationService } from './utils/notificationService';
 import { Header } from './components/Header';
+import { Navigation, type ActivePage } from './components/Navigation';
 import { Statistics } from './components/Statistics';
 import { TodayHighlight } from './components/TodayHighlight';
 import { CalendarToolbar } from './components/CalendarToolbar';
@@ -35,6 +36,7 @@ import { CalendarDays, RefreshCw } from 'lucide-react';
 export function App() {
   const { user, isAuthenticated, isLoading: isAuthLoading, logout } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [activePage, setActivePage] = useState<ActivePage>('today');
 
   const todayDate = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => formatDateKey(todayDate), [todayDate]);
@@ -559,7 +561,7 @@ export function App() {
       )}
 
       {/* Main Container */}
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 pt-3 sm:pt-6 space-y-4 sm:space-y-5">
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 pt-3 sm:pt-6 pb-24 md:pb-10 space-y-4 sm:space-y-5">
         {/* 1. Header with Authenticated User & Logout */}
         <Header
           user={user}
@@ -575,90 +577,119 @@ export function App() {
           onToggleTheme={handleToggleTheme}
         />
 
-        {/* 2. Today's Highlight Bar (Immediate Daily Focus) */}
-        <TodayHighlight
-          todayDay={todayDay}
-          slots={slots}
-          statusRecords={statusRecords}
-          isCheatDay={cheatDays.has(todayDay.dateKey)}
-          onToggleCheatDay={() => handleToggleCheatDay(todayDay.dateKey)}
-          onJumpToToday={handleGoToday}
-          onMarkAllTodayCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
-        />
-
-        {/* 3. Top Statistics Summary (Compact Month Overview) */}
-        <Statistics stats={monthStats} monthName={monthYearDisplay} />
-
-        {/* 4. Calendar Toolbar (Month navigation & Filters) */}
-        <CalendarToolbar
-          currentMonthYearText={monthYearDisplay}
-          days={daysInMonth}
-          onPrevMonth={handlePrevMonth}
-          onNextMonth={handleNextMonth}
-          onGoToday={handleGoToday}
-          onSelectDate={handleJumpToDate}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedPeriod={selectedPeriod}
-          onPeriodChange={setSelectedPeriod}
-          selectedStatus={selectedStatus}
-          onStatusChange={setSelectedStatus}
-          onResetFilters={() => {
-            setSearchQuery('');
-            setSelectedPeriod('ALL');
-            setSelectedStatus('ALL');
+        {/* 2. Navigation Switcher (Desktop Tabs & Mobile Fixed Bottom Bar) */}
+        <Navigation
+          activePage={activePage}
+          onPageChange={setActivePage}
+          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+          onManageSchedule={() => setIsManageScheduleOpen(true)}
+          onAddGoal={() => {
+            setEditingSlot(null);
+            setIsAddEditOpen(true);
           }}
+          totalSlots={slots.length}
         />
 
-        {/* 5. Main Timetable / Work Calendar */}
-        {isDataLoading && slots.length === 0 ? (
-          <div className="py-24 text-center">
-            <RefreshCw className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading your timetable from database...</p>
+        {/* ========================================================================= */}
+        {/* 🎯 PAGE 1: TODAY & OVERVIEW                                               */}
+        {/* ========================================================================= */}
+        {activePage === 'today' && (
+          <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
+            {/* Today's Highlight Bar (Immediate Daily Focus) */}
+            <TodayHighlight
+              todayDay={todayDay}
+              slots={slots}
+              statusRecords={statusRecords}
+              isCheatDay={cheatDays.has(todayDay.dateKey)}
+              onToggleCheatDay={() => handleToggleCheatDay(todayDay.dateKey)}
+              onJumpToToday={() => {
+                setActivePage('timetable');
+                setTimeout(() => handleGoToday(), 100);
+              }}
+              onMarkAllTodayCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
+            />
+
+            {/* Top Statistics Summary (Compact Month Overview) */}
+            <Statistics stats={monthStats} monthName={monthYearDisplay} />
           </div>
-        ) : slots.length === 0 ? (
-          <EmptyState
-            onCreateSchedule={() => {
-              setEditingSlot(null);
-              setIsAddEditOpen(true);
-            }}
-            onLoadSample={async () => {
-              // Create default starter goals in backend database
-              const starterGoals = [
-                { time: '08:00 AM', period: 'Morning' as Period, workGoal: 'DSA & Coding Practice', category: 'Coding' },
-                { time: '10:00 AM', period: 'Morning' as Period, workGoal: 'Core Engineering Subjects', category: 'Study' },
-                { time: '02:00 PM', period: 'Afternoon' as Period, workGoal: 'Project Development', category: 'Building' },
-                { time: '06:00 PM', period: 'Evening' as Period, workGoal: 'Exercise & Fitness Routine', category: 'Health' },
-              ];
-              for (const g of starterGoals) {
-                await api.goals.create(g);
-              }
-              await loadUserData();
-              showNotification('Created starter daily schedule in your database!');
-            }}
-          />
-        ) : (
-          <WorkCalendar
-            days={daysInMonth}
-            slots={filteredSlots}
-            statusRecords={statusRecords}
-            cheatDays={cheatDays}
-            onToggleCheatDay={handleToggleCheatDay}
-            onStatusChange={handleStatusChange}
-            onEditSlot={(slot) => {
-              setEditingSlot(slot);
-              setIsAddEditOpen(true);
-            }}
-            onDeleteSlot={promptDeleteSlot}
-            onAddSlot={() => {
-              setEditingSlot(null);
-              setIsAddEditOpen(true);
-            }}
-            onOpenNote={handleOpenNote}
-            onMarkAllDayCompleted={handleMarkAllDayCompleted}
-            onResetDayStatuses={handleResetDayStatuses}
-            selectedMonthName={monthYearDisplay}
-          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* 📅 PAGE 2: TIMETABLE GRID                                                 */}
+        {/* ========================================================================= */}
+        {activePage === 'timetable' && (
+          <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
+            {/* Calendar Toolbar (Month navigation & Filters) */}
+            <CalendarToolbar
+              currentMonthYearText={monthYearDisplay}
+              days={daysInMonth}
+              onPrevMonth={handlePrevMonth}
+              onNextMonth={handleNextMonth}
+              onGoToday={handleGoToday}
+              onSelectDate={handleJumpToDate}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={setSelectedPeriod}
+              selectedStatus={selectedStatus}
+              onStatusChange={setSelectedStatus}
+              onResetFilters={() => {
+                setSearchQuery('');
+                setSelectedPeriod('ALL');
+                setSelectedStatus('ALL');
+              }}
+            />
+
+            {/* Main Timetable / Work Calendar */}
+            {isDataLoading && slots.length === 0 ? (
+              <div className="py-24 text-center">
+                <RefreshCw className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading your timetable from database...</p>
+              </div>
+            ) : slots.length === 0 ? (
+              <EmptyState
+                onCreateSchedule={() => {
+                  setEditingSlot(null);
+                  setIsAddEditOpen(true);
+                }}
+                onLoadSample={async () => {
+                  const starterGoals = [
+                    { time: '08:00 AM', period: 'Morning' as Period, workGoal: 'DSA & Coding Practice', category: 'Coding' },
+                    { time: '10:00 AM', period: 'Morning' as Period, workGoal: 'Core Engineering Subjects', category: 'Study' },
+                    { time: '02:00 PM', period: 'Afternoon' as Period, workGoal: 'Project Development', category: 'Building' },
+                    { time: '06:00 PM', period: 'Evening' as Period, workGoal: 'Exercise & Fitness Routine', category: 'Health' },
+                  ];
+                  for (const g of starterGoals) {
+                    await api.goals.create(g);
+                  }
+                  await loadUserData();
+                  showNotification('Created starter daily schedule in your database!');
+                }}
+              />
+            ) : (
+              <WorkCalendar
+                days={daysInMonth}
+                slots={filteredSlots}
+                statusRecords={statusRecords}
+                cheatDays={cheatDays}
+                onToggleCheatDay={handleToggleCheatDay}
+                onStatusChange={handleStatusChange}
+                onEditSlot={(slot) => {
+                  setEditingSlot(slot);
+                  setIsAddEditOpen(true);
+                }}
+                onDeleteSlot={promptDeleteSlot}
+                onAddSlot={() => {
+                  setEditingSlot(null);
+                  setIsAddEditOpen(true);
+                }}
+                onOpenNote={handleOpenNote}
+                onMarkAllDayCompleted={handleMarkAllDayCompleted}
+                onResetDayStatuses={handleResetDayStatuses}
+                selectedMonthName={monthYearDisplay}
+              />
+            )}
+          </div>
         )}
       </div>
 
