@@ -618,6 +618,11 @@ export function App() {
               isCheatDay={cheatDays.has(todayDay.dateKey)}
               onStatusChange={handleStatusChange}
               onOpenNote={handleOpenNote}
+              onEditSlot={(slot) => {
+                setEditingSlot(slot);
+                setIsAddEditOpen(true);
+              }}
+              onDeleteSlot={promptDeleteSlot}
               onMarkAllCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
               onAddGoal={() => {
                 setEditingSlot(null);

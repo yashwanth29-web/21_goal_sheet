@@ -8,6 +8,8 @@ import {
   Sparkles,
   CheckCheck,
   Plus,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 interface TodayGoalsCardProps {
@@ -17,6 +19,8 @@ interface TodayGoalsCardProps {
   isCheatDay?: boolean;
   onStatusChange: (dateKey: string, slotId: string, status: GoalStatus) => void;
   onOpenNote: (slot: ScheduleSlot, dateKey: string, currentNote?: string) => void;
+  onEditSlot: (slot: ScheduleSlot) => void;
+  onDeleteSlot: (slot: ScheduleSlot) => void;
   onMarkAllCompleted: () => void;
   onAddGoal: () => void;
 }
@@ -28,6 +32,8 @@ export const TodayGoalsCard: React.FC<TodayGoalsCardProps> = ({
   isCheatDay = false,
   onStatusChange,
   onOpenNote,
+  onEditSlot,
+  onDeleteSlot,
   onMarkAllCompleted,
   onAddGoal,
 }) => {
@@ -77,11 +83,11 @@ export const TodayGoalsCard: React.FC<TodayGoalsCardProps> = ({
           <button
             type="button"
             onClick={onAddGoal}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-xs transition-transform hover:scale-105 cursor-pointer"
             title="Add a goal to routine"
           >
             <Plus className="w-3 h-3" />
-            <span>Goal</span>
+            <span>+ Goal</span>
           </button>
         </div>
       </div>
@@ -107,7 +113,7 @@ export const TodayGoalsCard: React.FC<TodayGoalsCardProps> = ({
             return (
               <div
                 key={slot.id}
-                className="py-2.5 px-1 flex items-center justify-between gap-3 group/task transition-all hover:bg-slate-50/70 dark:hover:bg-slate-800/30 rounded-xl"
+                className="py-2.5 px-1 flex items-center justify-between gap-2.5 group/task transition-all hover:bg-slate-50/70 dark:hover:bg-slate-800/30 rounded-xl"
               >
                 {/* Left: 1-Tap Checkbox Circle + Title */}
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -154,7 +160,7 @@ export const TodayGoalsCard: React.FC<TodayGoalsCardProps> = ({
                       {goalTitle}
                     </p>
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      <span className="font-mono font-semibold flex items-center gap-0.5">
+                      <span className="font-mono font-semibold flex items-center gap-0.5 whitespace-nowrap">
                         <Clock className="w-2.5 h-2.5 text-slate-400" />
                         {slot.time}
                       </span>
@@ -179,7 +185,7 @@ export const TodayGoalsCard: React.FC<TodayGoalsCardProps> = ({
                   </div>
                 </div>
 
-                {/* Right: Quick Status Cycle Badge + Note Button */}
+                {/* Right Action Strip: Status Badge + Note + Edit + Delete */}
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Status Cycle Badge */}
                   <button
@@ -217,6 +223,26 @@ export const TodayGoalsCard: React.FC<TodayGoalsCardProps> = ({
                     title={hasNote ? 'Edit note' : 'Add reflection note'}
                   >
                     <StickyNote className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Edit Goal Button */}
+                  <button
+                    type="button"
+                    onClick={() => onEditSlot(slot)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors cursor-pointer"
+                    title="Edit goal (time, title, category)"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Delete Goal Button */}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteSlot(slot)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                    title="Delete goal from routine"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
