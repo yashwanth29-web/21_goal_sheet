@@ -23,6 +23,7 @@ import { Header } from './components/Header';
 import { Navigation, type ActivePage } from './components/Navigation';
 import { Statistics } from './components/Statistics';
 import { TodayHighlight } from './components/TodayHighlight';
+import { TodayGoalsCard } from './components/TodayGoalsCard';
 import { CalendarToolbar } from './components/CalendarToolbar';
 import { WorkCalendar } from './components/WorkCalendar';
 import { AddEditModal } from './components/AddEditModal';
@@ -607,6 +608,21 @@ export function App() {
                 setTimeout(() => handleGoToday(), 100);
               }}
               onMarkAllTodayCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
+            />
+
+            {/* Today's 1-Tap Action Checklist for Mobile & Fast Daily Tracking */}
+            <TodayGoalsCard
+              todayDay={todayDay}
+              slots={slots}
+              statusRecords={statusRecords}
+              isCheatDay={cheatDays.has(todayDay.dateKey)}
+              onStatusChange={handleStatusChange}
+              onOpenNote={handleOpenNote}
+              onMarkAllCompleted={() => handleMarkAllDayCompleted(todayDay.dateKey)}
+              onAddGoal={() => {
+                setEditingSlot(null);
+                setIsAddEditOpen(true);
+              }}
             />
 
             {/* Top Statistics Summary (Compact Month Overview) */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, CalendarDays, Trophy, Settings, PlusCircle } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Trophy, SlidersHorizontal, Plus } from 'lucide-react';
 
 export type ActivePage = 'today' | 'timetable';
 
@@ -23,13 +23,13 @@ export const Navigation: React.FC<NavigationProps> = ({
   return (
     <>
       {/* ========================================================================= */}
-      {/* 📱 MOBILE FIXED BOTTOM NAVIGATION BAR (Visible on screens < md)          */}
+      {/* 📱 MOBILE FLOATING BOTTOM NAVIGATION BAR (Screens < md)                   */}
       {/* ========================================================================= */}
       <nav
         aria-label="Mobile Bottom Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)] px-3 py-1.5 pb-safe"
+        className="md:hidden fixed bottom-3 left-4 right-4 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.6)] rounded-2xl p-1.5"
       >
-        <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
+        <div className="grid grid-cols-2 gap-1.5 max-w-sm mx-auto">
           {/* Tab 1: Today & Overview */}
           <button
             type="button"
@@ -37,19 +37,14 @@ export const Navigation: React.FC<NavigationProps> = ({
               onPageChange('today');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-pointer ${
               activePage === 'today'
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs scale-[1.02]'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold scale-[1.02]'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 font-medium'
             }`}
           >
-            <div className="relative">
-              <LayoutDashboard className={`w-5 h-5 ${activePage === 'today' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-              {activePage === 'today' && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse" />
-              )}
-            </div>
-            <span className="text-[11px] mt-0.5 tracking-tight">Today & Stats</span>
+            <LayoutDashboard className={`w-4 h-4 ${activePage === 'today' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+            <span className="text-xs tracking-tight">Today & Stats</span>
           </button>
 
           {/* Tab 2: Timetable Grid */}
@@ -59,25 +54,20 @@ export const Navigation: React.FC<NavigationProps> = ({
               onPageChange('timetable');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl transition-all duration-200 cursor-pointer ${
               activePage === 'timetable'
-                ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs scale-[1.02]'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold scale-[1.02]'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 font-medium'
             }`}
           >
-            <div className="relative">
-              <CalendarDays className={`w-5 h-5 ${activePage === 'timetable' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-              {activePage === 'timetable' && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse" />
-              )}
-            </div>
-            <span className="text-[11px] mt-0.5 tracking-tight">Timetable Grid</span>
+            <CalendarDays className={`w-4 h-4 ${activePage === 'timetable' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+            <span className="text-xs tracking-tight">Timetable Grid</span>
           </button>
         </div>
       </nav>
 
       {/* ========================================================================= */}
-      {/* 💻 DESKTOP TOP SEGMENTED NAV BAR / PAGE SWITCHER (Visible on md+)         */}
+      {/* 💻 DESKTOP TOP SEGMENTED NAV BAR / PAGE SWITCHER (Screens >= md)          */}
       {/* ========================================================================= */}
       <div className="hidden md:flex items-center justify-between p-1.5 bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl backdrop-blur-xl shadow-xs">
         {/* Main 2-Page Segmented Control */}
@@ -125,7 +115,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             onClick={onManageSchedule}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-all cursor-pointer"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Routine ({totalSlots})</span>
           </button>
 
@@ -134,7 +124,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             onClick={onAddGoal}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer hover:scale-105"
           >
-            <PlusCircle className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5" />
             <span>Add Goal</span>
           </button>
         </div>
