@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { LeaderboardUser } from '../types';
 import { api } from '../api/client';
 import { FriendTrackerModal } from './FriendTrackerModal';
@@ -8,59 +8,51 @@ import {
   Flame,
   Search,
   RefreshCw,
+  Sparkles,
+  Users,
   UserPlus,
   Check,
   CheckCircle2,
-  Clock,
-  ArrowRight,
-  ShieldCheck,
-  UserCheck,
-  Inbox,
-  Sparkles,
-  AlertCircle,
+  Mail,
+  Lock,
 } from 'lucide-react';
 
 interface LeaderboardModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserId?: string;
-  initialTab?: 'leaderboard' | 'friends';
+  initialTab?: ViewTab;
 }
 
 type SortField = 'monthly' | 'today' | 'streak';
+export type ViewTab = 'all' | 'friends' | 'requests';
 
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onClose,
   currentUserId,
-  initialTab = 'leaderboard',
+  initialTab = 'all',
 }) => {
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'friends'>(initialTab);
+  const [activeTab, setActiveTab] = useState<ViewTab>(initialTab);
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Leaderboard filters
-  const [sortBy, setSortBy] = useState<SortField>('monthly');
-  const [searchFriend, setSearchFriend] = useState('');
-
-  // Discover & Search Friends state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
+  const [sortBy, setSortBy] = useState<SortField>('monthly');
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [selectedFriendForTracker, setSelectedFriendForTracker] = useState<any | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // Sync initialTab when opening modal
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && initialTab) {
       setActiveTab(initialTab);
     }
   }, [isOpen, initialTab]);
 
-  const fetchLeaderboardAndFriends = async () => {
+  const currentUserCardRef = useRef<HTMLDivElement | null>(null);
+
+  const fetchData = async () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -71,8 +63,9 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
       if (lbRes.success && lbRes.data) {
         setUsers(lbRes.data);
+        setLastRefreshed(new Date());
       } else if (!lbRes.success) {
-        setErrorMessage(lbRes.message || 'Failed to load leaderboard data.');
+        setErrorMessage(lbRes.message || 'Failed to connect to live rankings server.');
       }
 
       if (friendsRes.success && friendsRes.data) {
@@ -80,53 +73,27 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to load leaderboard:', err);
-      setErrorMessage(err.message || 'Failed to connect to leaderboard.');
+      setErrorMessage(err.message || 'Failed to load leaderboard.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Perform user search for adding friends
-  const executeSearch = async (query: string) => {
-    setIsSearching(true);
-    try {
-      const res = await api.friends.search(query);
-      if (res.success && res.data) {
-        setSearchResults(res.data);
-      }
-    } catch (err) {
-      console.error('Search error:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   useEffect(() => {
     if (isOpen) {
-      fetchLeaderboardAndFriends();
-      if (activeTab === 'friends') {
-        executeSearch(searchQuery);
-      }
+      fetchData();
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen]);
 
-  useEffect(() => {
-    if (activeTab === 'friends') {
-      const timer = setTimeout(() => {
-        executeSearch(searchQuery);
-      }, 250);
-      return () => clearTimeout(timer);
-    }
-  }, [searchQuery, activeTab]);
-
-  const handleSendFriendRequest = async (targetUserId: string) => {
+  const handleSendFriendRequest = async (targetUserId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setActionLoadingId(targetUserId);
     try {
       const res = await api.friends.sendRequest(targetUserId);
       if (res.success) {
-        // Update search list state
-        setSearchResults((prev) =>
-          prev.map((u) => (u.id === targetUserId ? { ...u, relationship: 'PENDING_SENT' } : u))
+        // Update local status to PENDING_SENT
+        setUsers((prev) =>
+          prev.map((u) => (u.id === targetUserId ? { ...u, friendshipStatus: 'PENDING_SENT' } : u))
         );
       } else {
         alert(res.message || 'Failed to send friend request');
@@ -138,13 +105,13 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     }
   };
 
-  const handleRespondRequest = async (requestId: string, action: 'ACCEPT' | 'REJECT') => {
+  const handleRespondRequest = async (requestId: string, action: 'ACCEPT' | 'REJECT', e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setActionLoadingId(requestId);
     try {
       const res = await api.friends.respond(requestId, action);
       if (res.success) {
-        await fetchLeaderboardAndFriends();
-        executeSearch(searchQuery);
+        await fetchData();
       } else {
         alert(res.message || 'Failed to respond to request');
       }
@@ -155,18 +122,22 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     }
   };
 
-  // Sorted and filtered friends leaderboard
-  const sortedLeaderboard = useMemo(() => {
-    let list = [...users];
+  // Filter users based on active tab and search
+  const filteredUsers = useMemo(() => {
+    let result = [...users];
 
-    if (searchFriend.trim()) {
-      const q = searchFriend.toLowerCase().trim();
-      list = list.filter(
+    if (activeTab === 'friends') {
+      result = result.filter((u) => u.friendshipStatus === 'ACCEPTED' || u.isCurrentUser || u.id === currentUserId);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
         (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
       );
     }
 
-    list.sort((a, b) => {
+    result.sort((a, b) => {
       if (sortBy === 'monthly') {
         if (b.monthly.rate !== a.monthly.rate) return b.monthly.rate - a.monthly.rate;
         if (b.today.rate !== a.today.rate) return b.today.rate - a.today.rate;
@@ -185,499 +156,494 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       return 0;
     });
 
-    return list;
-  }, [users, sortBy, searchFriend]);
+    return result;
+  }, [users, activeTab, searchQuery, sortBy, currentUserId]);
 
-  const acceptedFriendsCount = users.filter((u) => !u.isCurrentUser).length;
+  const handleScrollToMe = () => {
+    if (currentUserCardRef.current) {
+      currentUserCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      currentUserCardRef.current.classList.remove('animate-pulse');
+      void currentUserCardRef.current.offsetWidth;
+      currentUserCardRef.current.classList.add('animate-pulse');
+    }
+  };
+
+  const getAvatarColor = (name: string, index: number) => {
+    const colors = [
+      'from-indigo-500 to-purple-600',
+      'from-blue-500 to-cyan-500',
+      'from-emerald-500 to-teal-600',
+      'from-amber-500 to-orange-600',
+      'from-rose-500 to-pink-600',
+      'from-violet-500 to-fuchsia-600',
+    ];
+    let sum = 0;
+    for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
+    return colors[(sum + index) % colors.length];
+  };
 
   if (!isOpen) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
-        <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden">
-          
-          {/* Header Bar */}
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
-                <Trophy className="w-5 h-5" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+        <div
+          className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] my-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Top Accent Line */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-indigo-500 to-purple-600" />
+
+          {/* Compact Clean Header */}
+          <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 shrink-0 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20 shrink-0">
+                  <Trophy className="w-4 h-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
+                      Leaderboard & Friends
+                    </h2>
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                      LIVE
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    Send friend requests to unlock detailed daily work trackers & scores
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>Leaderboard</span>
-                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    Live
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {activeTab === 'leaderboard' ? 'Your ranking & connected friends' : 'Connect with friends to view streaks'}
-                </p>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={fetchData}
+                  disabled={isLoading}
+                  title="Refresh rankings"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-indigo-500' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            {/* View Tabs: All Rankings | Friends | Requests */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 dark:bg-slate-800/60 rounded-xl">
               <button
                 type="button"
-                onClick={fetchLeaderboardAndFriends}
-                disabled={isLoading}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                title="Refresh rankings"
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                title="Close modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Segmented Top Tabs */}
-          <div className="px-5 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 flex items-center justify-between gap-2">
-            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/70 rounded-2xl w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => setActiveTab('leaderboard')}
-                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  activeTab === 'leaderboard'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                onClick={() => setActiveTab('all')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  activeTab === 'all'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                <span>Friends Leaderboard</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold ml-1">
-                  {users.length}
-                </span>
+                <Trophy className="w-3.5 h-3.5" />
+                <span>All Rankings</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('friends')}
-                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   activeTab === 'friends'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <UserPlus className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Find & Add Friends</span>
+                <Users className="w-3.5 h-3.5" />
+                <span>Friends</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('requests')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 relative ${
+                  activeTab === 'requests'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Requests</span>
                 {incomingRequests.length > 0 && (
-                  <span className="flex h-2 w-2 relative ml-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+                  <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9.5px] font-black animate-pulse">
+                    {incomingRequests.length}
                   </span>
                 )}
               </button>
             </div>
 
-            {/* Quick Sort Options for Leaderboard tab */}
-            {activeTab === 'leaderboard' && (
-              <div className="hidden sm:flex items-center gap-1 text-[11px]">
-                <span className="text-slate-400 font-medium mr-1">Sort:</span>
-                {(['monthly', 'today', 'streak'] as SortField[]).map((field) => (
-                  <button
-                    key={field}
-                    type="button"
-                    onClick={() => setSortBy(field)}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
-                      sortBy === field
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-bold'
-                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                    }`}
-                  >
-                    {field === 'monthly' ? 'Monthly %' : field === 'today' ? 'Today %' : 'Streak'}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
-            {errorMessage && (
-              <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* TAB 1: FRIENDS LEADERBOARD */}
-            {activeTab === 'leaderboard' && (
+            {/* Search Box & Sorters (Shown on 'all' and 'friends' tabs) */}
+            {activeTab !== 'requests' && (
               <>
-                {/* Mobile Sort Pills */}
-                <div className="sm:hidden flex items-center justify-between gap-1 pb-1">
-                  <span className="text-[11px] text-slate-400 font-medium">Rank by:</span>
-                  <div className="flex items-center gap-1">
-                    {(['monthly', 'today', 'streak'] as SortField[]).map((field) => (
-                      <button
-                        key={field}
-                        type="button"
-                        onClick={() => setSortBy(field)}
-                        className={`px-2 py-1 rounded-lg text-xs transition-colors ${
-                          sortBy === field
-                            ? 'bg-indigo-600 text-white font-bold shadow-xs'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}
-                      >
-                        {field === 'monthly' ? 'Monthly' : field === 'today' ? 'Today' : 'Streak'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Search in friends */}
-                {users.length > 4 && (
-                  <div className="relative mb-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={searchFriend}
-                      onChange={(e) => setSearchFriend(e.target.value)}
-                      placeholder="Filter ranking..."
-                      className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                )}
-
-                {/* Empty State / Only Self */}
-                {acceptedFriendsCount === 0 && (
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 dark:border-indigo-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                        <Sparkles className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                          Track goals alongside your friends!
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Add friends to compare streaks, monthly consistency, and view each other's schedules.
-                        </p>
-                      </div>
-                    </div>
+                <div className="relative w-full">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search member by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white placeholder-slate-400"
+                  />
+                  {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setActiveTab('friends')}
-                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm transition-transform active:scale-95 flex items-center gap-1.5 shrink-0"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs"
                     >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>Find Friends</span>
-                      <ArrowRight className="w-3 h-3" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Users List */}
-                <div className="space-y-2.5">
-                  {sortedLeaderboard.map((user, idx) => {
-                    const rank = idx + 1;
-                    const isSelf = user.isCurrentUser || user.id === currentUserId;
+                {/* Sorter Row */}
+                <div className="grid grid-cols-4 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSortBy('monthly')}
+                    className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      sortBy === 'monthly'
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <span>🏆</span>
+                    <span>Monthly</span>
+                  </button>
 
-                    return (
-                      <div
-                        key={user.id}
-                        className={`group relative p-3 sm:p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                          isSelf
-                            ? 'bg-gradient-to-r from-indigo-50/70 via-white to-purple-50/50 dark:from-indigo-950/30 dark:via-slate-900 dark:to-purple-950/20 border-indigo-200 dark:border-indigo-800 shadow-xs'
-                            : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                        }`}
-                      >
-                        {/* Left: Rank & User Profile */}
-                        <div className="flex items-center gap-3 min-w-0">
-                          {/* Rank Badge */}
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0">
-                            {rank === 1 ? (
-                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-400 text-amber-950 font-black text-xs flex items-center justify-center shadow-xs">
-                                🥇
-                              </div>
-                            ) : rank === 2 ? (
-                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-300 text-slate-800 font-black text-xs flex items-center justify-center shadow-xs">
-                                🥈
-                              </div>
-                            ) : rank === 3 ? (
-                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-700/80 text-amber-100 font-black text-xs flex items-center justify-center shadow-xs">
-                                🥉
-                              </div>
-                            ) : (
-                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-xs flex items-center justify-center">
-                                #{rank}
-                              </div>
-                            )}
-                          </div>
+                  <button
+                    type="button"
+                    onClick={() => setSortBy('today')}
+                    className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      sortBy === 'today'
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <span>⚡</span>
+                    <span>Today</span>
+                  </button>
 
-                          {/* Avatar */}
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
-                            {user.name.charAt(0).toUpperCase()}
-                          </div>
+                  <button
+                    type="button"
+                    onClick={() => setSortBy('streak')}
+                    className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      sortBy === 'streak'
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <span>🔥</span>
+                    <span>Streak</span>
+                  </button>
 
-                          {/* Name & Subtitle */}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                                {user.name}
-                              </span>
-                              {isSelf ? (
-                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-indigo-600 text-white uppercase tracking-wider">
-                                  You
-                                </span>
-                              ) : (
-                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center gap-0.5">
-                                  <UserCheck className="w-2.5 h-2.5 text-emerald-500" />
-                                  <span>Friend</span>
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Micro stats details */}
-                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                              <span>
-                                Today: <strong className="text-slate-800 dark:text-slate-200">{user.today.rate}%</strong>
-                              </span>
-                              <span>•</span>
-                              <span>
-                                Monthly: <strong className="text-slate-800 dark:text-slate-200">{user.monthly.rate}%</strong>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Right: Primary Metric & Tracker Action */}
-                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                          {/* Streak Pill */}
-                          <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-400 text-xs font-bold">
-                            <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                            <span>{user.streak.current}d</span>
-                          </div>
-
-                          {/* Primary Score Pill */}
-                          <div className="text-right">
-                            <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                              {sortBy === 'streak'
-                                ? `${user.streak.current} Days`
-                                : sortBy === 'today'
-                                ? `${user.today.rate}%`
-                                : `${user.monthly.rate}%`}
-                            </div>
-                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                              {sortBy === 'streak' ? 'Streak' : sortBy === 'today' ? 'Today' : 'Monthly'}
-                            </div>
-                          </div>
-
-                          {/* Tracker Detail View Button */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedFriendForTracker(user)}
-                            className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1"
-                            title="View full routine & daily breakdown"
-                          >
-                            <span>Tracker</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <button
+                    type="button"
+                    onClick={handleScrollToMe}
+                    title="Locate my card"
+                    className="py-1.5 px-1 rounded-xl text-[11px] font-bold bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all cursor-pointer text-center flex items-center justify-center gap-1"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                    <span>My Rank</span>
+                  </button>
                 </div>
               </>
             )}
+          </div>
 
-            {/* TAB 2: FIND & ADD FRIENDS */}
-            {activeTab === 'friends' && (
-              <div className="space-y-4">
-                {/* Incoming Requests Section (If Any) */}
-                {incomingRequests.length > 0 && (
-                  <div className="p-3.5 rounded-2xl bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Inbox className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                        <h4 className="text-xs font-bold text-rose-950 dark:text-rose-200">
-                          Incoming Friend Requests ({incomingRequests.length})
-                        </h4>
-                      </div>
-                      <span className="text-[10px] text-rose-600 dark:text-rose-400 font-medium">
-                        Respond to unlock rankings
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      {incomingRequests.map((req) => (
-                        <div
-                          key={req.requestId}
-                          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-rose-900/40 flex items-center justify-between gap-2 shadow-xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-rose-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                              {req.from.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                {req.from.name}
-                              </p>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                                {req.from.email}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleRespondRequest(req.requestId, 'ACCEPT')}
-                              disabled={actionLoadingId === req.requestId}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1"
-                            >
-                              <Check className="w-3 h-3" />
-                              <span>Accept</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRespondRequest(req.requestId, 'REJECT')}
-                              disabled={actionLoadingId === req.requestId}
-                              className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium transition-colors cursor-pointer"
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Search Bar */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Search People to Connect
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Type name or email to search..."
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    {isSearching && (
-                      <RefreshCw className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 animate-spin" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Search Results / Discover List */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-1">
-                    <span>{searchQuery.trim() ? 'Matching Members' : 'Suggested Members on Platform'}</span>
-                    <span>{searchResults.length} found</span>
-                  </div>
-
-                  {searchResults.length === 0 ? (
-                    <div className="py-8 text-center text-slate-400 text-xs">
-                      {isSearching ? 'Searching users...' : 'No other users found matching your search.'}
-                    </div>
-                  ) : (
-                    searchResults.map((user) => {
-                      const isSelf = user.id === currentUserId;
-                      if (isSelf) return null;
-
-                      return (
-                        <div
-                          key={user.id}
-                          className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                              {user.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                {user.name}
-                              </p>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                                {user.email}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0">
-                            {user.relationship === 'ACCEPTED' ? (
-                              <span className="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                <span>Connected</span>
-                              </span>
-                            ) : user.relationship === 'PENDING_SENT' ? (
-                              <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-semibold flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-amber-500" />
-                                <span>Requested</span>
-                              </span>
-                            ) : user.relationship === 'PENDING_RECEIVED' ? (
-                              <button
-                                type="button"
-                                onClick={() => handleRespondRequest(user.requestId!, 'ACCEPT')}
-                                className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1"
-                              >
-                                <Check className="w-3 h-3" />
-                                <span>Accept</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleSendFriendRequest(user.id)}
-                                disabled={actionLoadingId === user.id}
-                                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
-                              >
-                                <UserPlus className="w-3 h-3" />
-                                <span>Add Friend</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+          {/* Body Content */}
+          <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2.5">
+            {isLoading ? (
+              <div className="py-16 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
+                <span className="text-xs font-semibold">Loading live rankings & friends...</span>
               </div>
+            ) : errorMessage ? (
+              <div className="py-10 px-4 text-center space-y-3">
+                <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">{errorMessage}</p>
+                <button
+                  type="button"
+                  onClick={fetchData}
+                  className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : activeTab === 'requests' ? (
+              /* Incoming Friend Requests Tab */
+              incomingRequests.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-400">
+                  <Mail className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  <p className="font-bold">No pending friend requests</p>
+                  <p className="text-[11px] mt-0.5">When other users request to connect with you, they will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {incomingRequests.map((req) => (
+                    <div
+                      key={req.requestId}
+                      className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 flex items-center justify-between gap-3 shadow-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white text-xs shrink-0">
+                          {req.from?.name ? req.from.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {req.from?.name}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{req.from?.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => handleRespondRequest(req.requestId, 'ACCEPT', e)}
+                          disabled={actionLoadingId === req.requestId}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Accept</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleRespondRequest(req.requestId, 'REJECT', e)}
+                          disabled={actionLoadingId === req.requestId}
+                          className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 dark:bg-slate-700 dark:hover:bg-rose-950/40 dark:text-slate-300 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : filteredUsers.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                {activeTab === 'friends'
+                  ? 'No connected friends yet. Send friend requests from All Rankings to view friends here!'
+                  : searchQuery
+                  ? `No participants found matching "${searchQuery}".`
+                  : 'No participants found yet.'}
+              </div>
+            ) : (
+              /* Rankings & Friends List */
+              filteredUsers.map((u, idx) => {
+                const rankNumber = idx + 1;
+                const isMe = u.isCurrentUser || u.id === currentUserId;
+                const isFriend = u.friendshipStatus === 'ACCEPTED';
+                const isPendingSent = u.friendshipStatus === 'PENDING_SENT';
+                const isPendingReceived = u.friendshipStatus === 'PENDING_RECEIVED';
+
+                return (
+                  <div
+                    key={u.id}
+                    ref={isMe ? currentUserCardRef : undefined}
+                    onClick={() => {
+                      if (!isMe) {
+                        setSelectedFriendForTracker(u);
+                      }
+                    }}
+                    className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                      isMe
+                        ? 'bg-gradient-to-r from-indigo-50/90 to-purple-50/80 dark:from-indigo-950/40 dark:to-purple-950/30 border-indigo-400 dark:border-indigo-500 shadow-md shadow-indigo-500/10'
+                        : rankNumber === 1
+                        ? 'bg-gradient-to-r from-amber-50/70 to-orange-50/50 dark:from-amber-950/20 dark:to-slate-850 border-amber-300 dark:border-amber-500/40 hover:border-amber-400'
+                        : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 hover:border-indigo-300 dark:hover:border-indigo-500/50'
+                    }`}
+                  >
+                    {/* Top Row: Rank Icon, Avatar, Name, Friendship Action Badge */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        {/* Rank Badge */}
+                        <div className="shrink-0 flex items-center justify-center w-7 h-7">
+                          {rankNumber === 1 ? (
+                            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white font-black text-xs flex items-center justify-center shadow-sm">
+                              🥇
+                            </div>
+                          ) : rankNumber === 2 ? (
+                            <div className="w-7 h-7 rounded-xl bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-black text-xs flex items-center justify-center">
+                              🥈
+                            </div>
+                          ) : rankNumber === 3 ? (
+                            <div className="w-7 h-7 rounded-xl bg-amber-700/30 text-amber-800 dark:text-amber-400 font-black text-xs flex items-center justify-center">
+                              🥉
+                            </div>
+                          ) : (
+                            <span className="font-mono font-bold text-slate-400 text-xs">#{rankNumber}</span>
+                          )}
+                        </div>
+
+                        {/* Avatar */}
+                        <div
+                          className={`w-7 h-7 rounded-xl bg-gradient-to-tr ${getAvatarColor(
+                            u.name,
+                            idx
+                          )} flex items-center justify-center font-bold text-white text-xs shadow-sm shrink-0`}
+                        >
+                          {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+
+                        {/* Name & Badges */}
+                        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                          <p className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                            {u.name}
+                          </p>
+
+                          {isMe ? (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-indigo-600 text-white shrink-0 tracking-wider">
+                              YOU
+                            </span>
+                          ) : isFriend ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shrink-0">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <span>Friend</span>
+                            </span>
+                          ) : isPendingSent ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
+                              ⏳ Requested
+                            </span>
+                          ) : isPendingReceived ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 shrink-0">
+                              Incoming Request
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Right Action: Friend Request Button or Streak Flame Badge */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!isMe && !isFriend && !isPendingSent && !isPendingReceived && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleSendFriendRequest(u.id, e)}
+                            disabled={actionLoadingId === u.id}
+                            className="flex items-center gap-1 px-2 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 text-[10.5px] font-bold transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50"
+                            title="Add Friend to unlock daily routine scores"
+                          >
+                            <UserPlus className="w-3 h-3" />
+                            <span>Add</span>
+                          </button>
+                        )}
+
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-100/80 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/50 text-amber-800 dark:text-amber-300 font-extrabold text-xs font-mono shrink-0 shadow-sm">
+                          <Flame className={`w-3.5 h-3.5 ${u.streak.current > 0 ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
+                          <span>{u.streak.current}d</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Stats: Today Achievement & Monthly Achievement */}
+                    <div className="grid grid-cols-2 gap-3 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/50">
+                      {/* Today Rate Column */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                            <span>Today</span>
+                            {!isMe && !isFriend && (
+                              <span title="Locked - Add friend to view details">
+                                <Lock className="w-2.5 h-2.5 text-slate-400" />
+                              </span>
+                            )}
+                          </span>
+                          <span
+                            className={`font-mono font-extrabold ${
+                              u.today.rate >= 80
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : u.today.rate > 0
+                                ? 'text-indigo-600 dark:text-indigo-400'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {u.today.rate}%
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-slate-100 dark:bg-slate-700/60 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${u.today.rate}%` }}
+                          />
+                        </div>
+
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {isFriend || isMe ? `${u.today.completed}/${u.today.total || u.today.tracked || 0} done` : '🔒 Connect to view'}
+                        </span>
+                      </div>
+
+                      {/* Monthly Rate Column */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                            <span>Monthly</span>
+                            {!isMe && !isFriend && (
+                              <span title="Locked - Add friend to view details">
+                                <Lock className="w-2.5 h-2.5 text-slate-400" />
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-mono font-extrabold text-indigo-600 dark:text-indigo-400">
+                            {u.monthly.rate}%
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-slate-100 dark:bg-slate-700/60 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${u.monthly.rate}%` }}
+                          />
+                        </div>
+
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {isFriend || isMe ? `${u.monthly.completed} completed` : '🔒 Connect to view'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
 
-          {/* Footer Bar */}
-          <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between text-[11px] text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Private & secure: only accepted friends share progress</span>
-            </div>
+          {/* Compact Footer */}
+          <div className="p-3 sm:p-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 flex items-center justify-between text-xs shrink-0">
+            <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Updated {lastRefreshed.toLocaleTimeString()}</span>
+            </span>
+
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold transition-colors cursor-pointer"
+              className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold transition-all cursor-pointer text-xs"
             >
               Close
             </button>
           </div>
-
         </div>
       </div>
 
-      {/* Friend Detailed Tracker Breakdown Modal */}
+      {/* Detailed Friend Tracker Modal */}
       {selectedFriendForTracker && (
         <FriendTrackerModal
           isOpen={Boolean(selectedFriendForTracker)}
           onClose={() => setSelectedFriendForTracker(null)}
-          targetUser={{
-            id: selectedFriendForTracker.id,
-            name: selectedFriendForTracker.name,
-            email: selectedFriendForTracker.email,
-            friendshipStatus: selectedFriendForTracker.friendshipStatus,
-            todayRate: selectedFriendForTracker.today?.rate,
-            monthRate: selectedFriendForTracker.monthly?.rate,
-            streak: selectedFriendForTracker.streak?.current,
-          }}
+          targetUser={selectedFriendForTracker}
+          onFriendRequestSent={fetchData}
         />
       )}
     </>

@@ -66,14 +66,7 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
       });
     }
 
-    // Only include self and accepted friends in the Friends Leaderboard
-    const eligibleUsers = users.filter((u) => {
-      if (u.id === currentUserId) return true;
-      const f = friendshipMap.get(u.id);
-      return f && f.status === 'ACCEPTED';
-    });
-
-    const leaderboard = eligibleUsers.map((u) => {
+    const leaderboard = users.map((u) => {
       const totalGoalsCount = u.goals.length;
 
       // Daily statuses for today

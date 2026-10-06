@@ -75,7 +75,7 @@ export function App() {
   const [editingSlot, setEditingSlot] = useState<ScheduleSlot | null>(null);
   const [isManageScheduleOpen, setIsManageScheduleOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
-  const [leaderboardInitialTab, setLeaderboardInitialTab] = useState<'leaderboard' | 'friends'>('leaderboard');
+  const [leaderboardInitialTab, setLeaderboardInitialTab] = useState<'all' | 'friends' | 'requests'>('all');
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const prevIncomingIdsRef = useRef<Set<string>>(new Set());
 
@@ -614,11 +614,11 @@ export function App() {
           }}
           onManageSchedule={() => setIsManageScheduleOpen(true)}
           onOpenLeaderboard={() => {
-            setLeaderboardInitialTab('leaderboard');
+            setLeaderboardInitialTab('all');
             setIsLeaderboardOpen(true);
           }}
           onOpenRequests={() => {
-            setLeaderboardInitialTab('friends');
+            setLeaderboardInitialTab('requests');
             setIsLeaderboardOpen(true);
           }}
           pendingRequestsCount={pendingRequestsCount}
@@ -632,7 +632,7 @@ export function App() {
           activePage={activePage}
           onPageChange={setActivePage}
           onOpenLeaderboard={() => {
-            setLeaderboardInitialTab('leaderboard');
+            setLeaderboardInitialTab('all');
             setIsLeaderboardOpen(true);
           }}
           onManageSchedule={() => setIsManageScheduleOpen(true)}
