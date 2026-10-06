@@ -86,16 +86,16 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenLeaderboard}
-            className="hidden md:flex relative group/lb items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer hover:scale-105 active:scale-95 animate-pulse-glow overflow-hidden shrink-0"
+            className="hidden md:flex relative group/lb items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold shadow-md shadow-amber-500/25 transition-all cursor-pointer hover:scale-105 active:scale-95 animate-pulse-glow overflow-hidden shrink-0"
             title="🔥 Check Live Rankings & Friends"
           >
             <div className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/35 to-transparent -skew-x-12 animate-shimmer-sweep pointer-events-none" />
-            <Trophy className="w-3.5 h-3.5 text-amber-100 shrink-0" />
+            <Trophy className="w-4 h-4 text-amber-100 shrink-0" />
             <span className="text-xs font-black tracking-tight whitespace-nowrap">
               Leaderboard
             </span>
             {pendingRequestsCount > 0 ? (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black shrink-0 animate-bounce">
+              <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black shrink-0 animate-bounce">
                 +{pendingRequestsCount}
               </span>
             ) : (
@@ -217,22 +217,22 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={onOpenLeaderboard}
-          className="relative group/lb w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 active:scale-[0.99] transition-transform overflow-hidden cursor-pointer"
+          className="relative group/lb w-full flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs sm:text-sm font-bold shadow-md shadow-amber-500/20 active:scale-[0.99] transition-transform overflow-hidden cursor-pointer"
         >
           <div className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 animate-shimmer-sweep pointer-events-none" />
-          <div className="flex items-center gap-2">
-            <Trophy className="w-3.5 h-3.5 text-amber-100 group-hover/lb:rotate-12 transition-transform duration-200" />
+          <div className="flex items-center gap-2.5">
+            <Trophy className="w-4 h-4 text-amber-100 group-hover/lb:rotate-12 transition-transform duration-200 shrink-0" />
             <span className="font-extrabold tracking-tight text-white drop-shadow-xs">
               Friends Leaderboard
             </span>
           </div>
 
           {pendingRequestsCount > 0 ? (
-            <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black shrink-0 animate-pulse">
+            <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black shrink-0 animate-pulse">
               +{pendingRequestsCount} Requests
             </span>
           ) : (
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-950/40 border border-white/20 text-[9px] font-black uppercase tracking-wider text-emerald-300 shrink-0">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-950/40 border border-white/20 text-[9.5px] font-black uppercase tracking-wider text-emerald-300 shrink-0">
               <span className="flex h-1.5 w-1.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300" />
