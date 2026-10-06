@@ -14,7 +14,7 @@ import {
   Check,
   CheckCircle2,
   Mail,
-  Lock,
+  Clock,
 } from 'lucide-react';
 
 interface LeaderboardModalProps {
@@ -31,7 +31,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onClose,
   currentUserId,
-  initialTab = 'all',
+  initialTab = 'friends',
 }) => {
   const [activeTab, setActiveTab] = useState<ViewTab>(initialTab);
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
@@ -137,24 +137,27 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       );
     }
 
-    result.sort((a, b) => {
-      if (sortBy === 'monthly') {
-        if (b.monthly.rate !== a.monthly.rate) return b.monthly.rate - a.monthly.rate;
-        if (b.today.rate !== a.today.rate) return b.today.rate - a.today.rate;
-        return b.streak.current - a.streak.current;
-      }
-      if (sortBy === 'today') {
-        if (b.today.rate !== a.today.rate) return b.today.rate - a.today.rate;
-        if (b.monthly.rate !== a.monthly.rate) return b.monthly.rate - a.monthly.rate;
-        return b.streak.current - a.streak.current;
-      }
-      if (sortBy === 'streak') {
-        if (b.streak.current !== a.streak.current) return b.streak.current - a.streak.current;
-        if (b.monthly.rate !== a.monthly.rate) return b.monthly.rate - a.monthly.rate;
-        return b.today.rate - a.today.rate;
-      }
-      return 0;
-    });
+    if (activeTab === 'friends') {
+      // Competitive ranking sort exclusively among friends & self
+      result.sort((a, b) => {
+        if (sortBy === 'monthly') {
+          if (b.monthly.rate !== a.monthly.rate) return b.monthly.rate - a.monthly.rate;
+          if (b.today.rate !== a.today.rate) return b.today.rate - a.today.rate;
+          return b.streak.current - a.streak.current;
+        }
+        if (sortBy === 'today') {
+          if (b.today.rate !== a.today.rate) return b.today.rate - a.today.rate;
+          if (b.monthly.rate !== a.monthly.rate) return b.monthly.rate - a.monthly.rate;
+          return b.streak.current - a.streak.current;
+        }
+        if (sortBy === 'streak') {
+          if (b.streak.current !== a.streak.current) return b.streak.current - a.streak.current;
+          if (b.monthly.rate !== a.monthly.rate) return b.monthly.rate - a.monthly.rate;
+          return b.today.rate - a.today.rate;
+        }
+        return 0;
+      });
+    }
 
     return result;
   }, [users, activeTab, searchQuery, sortBy, currentUserId]);
@@ -182,6 +185,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     return colors[(sum + index) % colors.length];
   };
 
+  const acceptedFriendsOnly = users.filter((u) => u.friendshipStatus === 'ACCEPTED');
+
   if (!isOpen) return null;
 
   return (
@@ -204,7 +209,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
-                      Leaderboard & Friends
+                      Friends Leaderboard
                     </h2>
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
@@ -212,7 +217,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    Send friend requests to unlock detailed daily work trackers & scores
+                    Compete on daily consistency & streaks with your accepted friends
                   </p>
                 </div>
               </div>
@@ -239,21 +244,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               </div>
             </div>
 
-            {/* View Tabs: All Rankings | Friends | Requests */}
+            {/* View Tabs: Friends (First) | Find Members (Second) | Requests (Third) */}
             <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 dark:bg-slate-800/60 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setActiveTab('all')}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  activeTab === 'all'
-                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Trophy className="w-3.5 h-3.5" />
-                <span>All Rankings</span>
-              </button>
-
               <button
                 type="button"
                 onClick={() => setActiveTab('friends')}
@@ -263,8 +255,21 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>Friends</span>
+                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                <span>Friends Rankings</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('all')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  activeTab === 'all'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Find Members</span>
               </button>
 
               <button
@@ -441,14 +446,44 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                   : 'No participants found yet.'}
               </div>
             ) : (
-              /* Rankings & Friends List */
-              filteredUsers.map((u, idx) => {
-                const rankNumber = idx + 1;
-                const isMe = u.isCurrentUser || u.id === currentUserId;
-                const isFriend = u.friendshipStatus === 'ACCEPTED';
-                const isPendingSent = u.friendshipStatus === 'PENDING_SENT';
-                const isPendingReceived = u.friendshipStatus === 'PENDING_RECEIVED';
+              <>
+                {/* In Friends Tab: If no friends yet, show friendly guidance banner */}
+                {activeTab === 'friends' && acceptedFriendsOnly.length === 0 && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      Compete with your friends!
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Add members to build your private competitive circle & compare streaks.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('all')}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer shrink-0 flex items-center gap-1"
+                >
+                  <UserPlus className="w-3 h-3" />
+                  <span>Find Members</span>
+                </button>
+              </div>
+            )}
 
+            {/* List of Users */}
+            {filteredUsers.map((u, idx) => {
+              const rankNumber = idx + 1;
+              const isMe = u.isCurrentUser || u.id === currentUserId;
+              const isFriend = u.friendshipStatus === 'ACCEPTED';
+              const isPendingSent = u.friendshipStatus === 'PENDING_SENT';
+              const isPendingReceived = u.friendshipStatus === 'PENDING_RECEIVED';
+
+              // TAB 1: FRIENDS RANKINGS (Competitive Ranking between friends & self)
+              if (activeTab === 'friends') {
                 return (
                   <div
                     key={u.id}
@@ -466,7 +501,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                         : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 hover:border-indigo-300 dark:hover:border-indigo-500/50'
                     }`}
                   >
-                    {/* Top Row: Rank Icon, Avatar, Name, Friendship Action Badge */}
+                    {/* Top Row: Rank Medal, Avatar, Name, Badges & Flame Streak */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         {/* Rank Badge */}
@@ -508,38 +543,17 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-indigo-600 text-white shrink-0 tracking-wider">
                               YOU
                             </span>
-                          ) : isFriend ? (
+                          ) : (
                             <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shrink-0">
-                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
                               <span>Friend</span>
                             </span>
-                          ) : isPendingSent ? (
-                            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
-                              ⏳ Requested
-                            </span>
-                          ) : isPendingReceived ? (
-                            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 shrink-0">
-                              Incoming Request
-                            </span>
-                          ) : null}
+                          )}
                         </div>
                       </div>
 
-                      {/* Right Action: Friend Request Button or Streak Flame Badge */}
+                      {/* Right Action: Streak Flame Badge */}
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {!isMe && !isFriend && !isPendingSent && !isPendingReceived && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleSendFriendRequest(u.id, e)}
-                            disabled={actionLoadingId === u.id}
-                            className="flex items-center gap-1 px-2 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 text-[10.5px] font-bold transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50"
-                            title="Add Friend to unlock daily routine scores"
-                          >
-                            <UserPlus className="w-3 h-3" />
-                            <span>Add</span>
-                          </button>
-                        )}
-
                         <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-100/80 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/50 text-amber-800 dark:text-amber-300 font-extrabold text-xs font-mono shrink-0 shadow-sm">
                           <Flame className={`w-3.5 h-3.5 ${u.streak.current > 0 ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
                           <span>{u.streak.current}d</span>
@@ -552,13 +566,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                       {/* Today Rate Column */}
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                            <span>Today</span>
-                            {!isMe && !isFriend && (
-                              <span title="Locked - Add friend to view details">
-                                <Lock className="w-2.5 h-2.5 text-slate-400" />
-                              </span>
-                            )}
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Today
                           </span>
                           <span
                             className={`font-mono font-extrabold ${
@@ -581,20 +590,15 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                         </div>
 
                         <span className="text-[10px] text-slate-400 font-medium">
-                          {isFriend || isMe ? `${u.today.completed}/${u.today.total || u.today.tracked || 0} done` : '🔒 Connect to view'}
+                          {`${u.today.completed}/${u.today.total || u.today.tracked || 0} done`}
                         </span>
                       </div>
 
                       {/* Monthly Rate Column */}
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                            <span>Monthly</span>
-                            {!isMe && !isFriend && (
-                              <span title="Locked - Add friend to view details">
-                                <Lock className="w-2.5 h-2.5 text-slate-400" />
-                              </span>
-                            )}
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Monthly
                           </span>
                           <span className="font-mono font-extrabold text-indigo-600 dark:text-indigo-400">
                             {u.monthly.rate}%
@@ -609,15 +613,95 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                         </div>
 
                         <span className="text-[10px] text-slate-400 font-medium">
-                          {isFriend || isMe ? `${u.monthly.completed} completed` : '🔒 Connect to view'}
+                          {`${u.monthly.completed} completed`}
                         </span>
                       </div>
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              }
+
+              // TAB 2: FIND MEMBERS (Discovery list to send requests; scores are private until accepted!)
+              return (
+                <div
+                  key={u.id}
+                  className="p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shadow-xs"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {/* Member Avatar */}
+                    <div
+                      className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${getAvatarColor(
+                        u.name,
+                        idx
+                      )} flex items-center justify-center font-bold text-white text-xs shadow-sm shrink-0`}
+                    >
+                      {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+
+                    {/* Member Details */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                          {u.name}
+                        </p>
+                        {isMe && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-indigo-600 text-white shrink-0">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {u.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Add / Status Action Button */}
+                  <div className="shrink-0">
+                    {isMe ? (
+                      <span className="text-xs text-slate-400 font-medium italic">Your Profile</span>
+                    ) : isFriend ? (
+                      <span className="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Connected</span>
+                      </span>
+                    ) : isPendingSent ? (
+                      <span className="px-2.5 py-1 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-semibold flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Requested</span>
+                      </span>
+                    ) : isPendingReceived ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          if (u.friendshipRequestId) {
+                            handleRespondRequest(u.friendshipRequestId, 'ACCEPT', e);
+                          }
+                        }}
+                        className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Accept</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => handleSendFriendRequest(u.id, e)}
+                        disabled={actionLoadingId === u.id}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50"
+                        title="Send friend request to compete on daily routine scores"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Add Friend</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
 
           {/* Compact Footer */}
           <div className="p-3 sm:p-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 flex items-center justify-between text-xs shrink-0">
