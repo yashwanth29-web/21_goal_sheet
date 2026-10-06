@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { CalendarDay } from '../utils/dateUtils';
 import type { ScheduleSlot, StatusRecordsMap } from '../types';
-import { CheckCircle2, AlertCircle, XCircle, ArrowDown } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface TodayHighlightProps {
@@ -55,139 +55,111 @@ export const TodayHighlight: React.FC<TodayHighlightProps> = ({
     previousAchievementRef.current = achievementRate;
   }, [achievementRate, totalGoals, isCheatDay]);
 
+  // SVG Circular progress radius
+  const radius = 24;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (achievementRate / 100) * circumference;
+
   return (
     <div
-      className={`w-full rounded-2xl border p-4 sm:p-5 shadow-md dark:shadow-xl backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all ${
+      className={`w-full rounded-2xl border p-3.5 sm:p-4 shadow-md dark:shadow-xl backdrop-blur-xl transition-all ${
         isCheatDay
-          ? 'border-amber-300 dark:border-amber-500/40 bg-gradient-to-r from-amber-50 via-white to-orange-50 dark:from-amber-950/40 dark:via-slate-900/60 dark:to-orange-950/30'
-          : 'border-indigo-200 dark:border-indigo-500/40 bg-gradient-to-r from-indigo-50 via-white to-purple-50 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-purple-950/30 dark:shadow-indigo-950/20'
+          ? 'border-amber-300 dark:border-amber-500/40 bg-gradient-to-r from-amber-50 via-white to-orange-50 dark:from-amber-950/40 dark:via-slate-900/80 dark:to-orange-950/30'
+          : 'border-indigo-200 dark:border-indigo-500/30 bg-gradient-to-r from-indigo-50/70 via-white to-purple-50/70 dark:from-indigo-950/40 dark:via-slate-900/80 dark:to-purple-950/30'
       }`}
     >
-      <div className="flex items-center gap-4">
-        <div
-          className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shrink-0 shadow-sm ${
-            isCheatDay
-              ? 'bg-amber-100 dark:bg-amber-600/30 border border-amber-300 dark:border-amber-400/30'
-              : 'bg-indigo-100 dark:bg-indigo-600/30 border border-indigo-300 dark:border-indigo-400/30 dark:shadow-[0_0_15px_rgba(99,102,241,0.3)]'
-          }`}
-        >
-          <span
-            className={`text-[10px] font-bold uppercase tracking-wider ${
-              isCheatDay ? 'text-amber-800 dark:text-amber-300' : 'text-indigo-700 dark:text-indigo-300'
-            }`}
-          >
-            {todayDay.monthNameShort}
-          </span>
-          <span
-            className={`text-lg font-black font-mono leading-none ${
-              isCheatDay ? 'text-amber-950 dark:text-white' : 'text-indigo-900 dark:text-white'
-            }`}
-          >
-            {todayDay.dayOfMonth}
-          </span>
-        </div>
-
-        <div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`flex items-center gap-1.5 text-xs font-black uppercase tracking-widest ${
-                isCheatDay ? 'text-amber-700 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full animate-ping ${
-                  isCheatDay ? 'bg-amber-500 dark:bg-amber-400' : 'bg-indigo-500 dark:bg-indigo-400'
-                }`}
+      <div className="flex items-center justify-between gap-3">
+        {/* Left: Circular Progress Ring & Numbers */}
+        <div className="flex items-center gap-3">
+          {/* Circular Progress Gauge */}
+          <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
+            <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+              <circle
+                cx="28"
+                cy="28"
+                r={radius}
+                className="stroke-slate-200 dark:stroke-slate-800"
+                strokeWidth="4.5"
+                fill="transparent"
               />
-              {isCheatDay ? 'TODAY — CHEAT DAY / HOLIDAY 🌴' : `TODAY — ${todayDay.formattedDisplay.toUpperCase()}`}
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">({todayDay.dayNameFull})</span>
-          </div>
-
-          {isCheatDay ? (
-            <p className="mt-1 text-xs text-amber-800 dark:text-amber-300/90 font-medium">
-              Enjoy your rest day! This day is excluded from your monthly target goals.
-            </p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs font-mono">
-              <span className="text-slate-800 dark:text-slate-200 font-semibold">{totalGoals} Goals</span>
-              <span className="text-slate-300 dark:text-slate-600">•</span>
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {completed} Completed
-              </span>
-              <span className="text-slate-300 dark:text-slate-600">•</span>
-              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
-                <AlertCircle className="w-3.5 h-3.5" />
-                {partial} Partial
-              </span>
-              <span className="text-slate-300 dark:text-slate-600">•</span>
-              <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
-                <XCircle className="w-3.5 h-3.5" />
-                {missed} Missed
+              <circle
+                cx="28"
+                cy="28"
+                r={radius}
+                className={`transition-all duration-700 ease-out ${
+                  isCheatDay
+                    ? 'stroke-amber-500'
+                    : achievementRate >= 80
+                    ? 'stroke-emerald-500'
+                    : achievementRate >= 40
+                    ? 'stroke-indigo-500'
+                    : 'stroke-indigo-400'
+                }`}
+                strokeWidth="4.5"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                fill="transparent"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-xs font-black font-mono text-slate-900 dark:text-white leading-none">
+                {achievementRate}%
               </span>
             </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4 pt-3 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-slate-800">
-        <div className="flex flex-col items-end">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Today's Achievement:</span>
-            <span
-              className={`text-lg sm:text-xl font-black font-mono ${
-                achievementRate >= 80
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : achievementRate >= 50
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-indigo-600 dark:text-indigo-300'
-              }`}
-            >
-              {achievementRate}%
-            </span>
           </div>
-          <div className="w-36 bg-slate-200 dark:bg-slate-800/80 h-1.5 rounded-full overflow-hidden flex gap-0.5 mt-1">
-            <div
-              className="bg-emerald-500 h-full transition-all duration-500"
-              style={{ width: `${totalGoals > 0 ? (completed / totalGoals) * 100 : 0}%` }}
-            />
-            <div
-              className="bg-amber-500 h-full transition-all duration-500"
-              style={{ width: `${totalGoals > 0 ? (partial / totalGoals) * 100 : 0}%` }}
-            />
-            <div
-              className="bg-rose-500 h-full transition-all duration-500"
-              style={{ width: `${totalGoals > 0 ? (missed / totalGoals) * 100 : 0}%` }}
-            />
+
+          {/* Today Info & Stats breakdown */}
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80">
+                TODAY • {todayDay.formattedDisplay.toUpperCase()}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">({todayDay.dayNameShort})</span>
+            </div>
+
+            {isCheatDay ? (
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mt-1 flex items-center gap-1">
+                <span>🌴 Rest / Cheat Day Active</span>
+              </p>
+            ) : (
+              <div className="flex items-center gap-2 mt-1 text-[11px] font-mono text-slate-600 dark:text-slate-300">
+                <span className="font-bold text-slate-900 dark:text-white">{totalGoals} Goals</span>
+                <span>•</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{completed} Done</span>
+                <span>•</span>
+                <span className="text-rose-600 dark:text-rose-400 font-semibold">{missed} Missed</span>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Right: Quick Cheat Day & Jump to Table Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {onToggleCheatDay && (
             <button
               type="button"
               onClick={onToggleCheatDay}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs ${
                 isCheatDay
-                  ? 'bg-amber-200 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 border border-amber-400 dark:border-amber-600'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-amber-50 hover:text-amber-800 dark:hover:bg-amber-950/40 dark:hover:text-amber-300'
+                  ? 'bg-amber-500 text-white shadow-amber-500/30 ring-2 ring-amber-400/40'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-amber-50 dark:hover:bg-amber-950/40'
               }`}
-              title={isCheatDay ? 'Restore today as an active goal target day' : 'Mark today as Cheat Day / Holiday (Excluded from monthly target)'}
+              title={isCheatDay ? 'Restore today as active target day' : 'Mark today as Cheat Day / Holiday'}
             >
               <span>🌴</span>
-              <span>{isCheatDay ? 'Restore Active Day' : 'Set Cheat Day'}</span>
+              <span className="hidden sm:inline">{isCheatDay ? 'Active Day' : 'Cheat Day'}</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={onJumpToToday}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border border-indigo-300 dark:bg-indigo-600/30 dark:hover:bg-indigo-600/50 dark:border-indigo-500/50 dark:text-white text-xs font-semibold shadow-sm transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-            title="Scroll timetable down to today's row"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+            title="Switch to full 31-day Timetable grid"
           >
-            <ArrowDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" />
-            <span>Jump to Row</span>
+            <span>Grid</span>
+            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
       </div>
