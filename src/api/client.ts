@@ -332,18 +332,19 @@ export const api = {
       };
       message?: string;
     }> {
-      const res = await request<{
-        friends: any[];
-        incomingRequests: any[];
-        outgoingRequests: any[];
-        totalFriends: number;
-        pendingIncomingCount: number;
-      }>('/friends/list', {
+      const res = await request<any>('/friends/list', {
         method: 'GET',
       });
+      const data = (res.data as any)?.data || res.data;
       return {
         success: res.success,
-        data: res.data,
+        data: data || {
+          friends: [],
+          incomingRequests: [],
+          outgoingRequests: [],
+          totalFriends: 0,
+          pendingIncomingCount: 0,
+        },
         message: res.message,
       };
     },
@@ -380,7 +381,6 @@ export const api = {
     },
 
     async search(query: string = ''): Promise<{
-
       success: boolean;
       data?: Array<{
         id: string;
@@ -393,19 +393,13 @@ export const api = {
       message?: string;
     }> {
       const q = encodeURIComponent(query);
-      const res = await request<Array<{
-        id: string;
-        name: string;
-        email: string;
-        relationship: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'ACCEPTED';
-        requestId?: string;
-        joinedAt: string;
-      }>>(`/friends/search?q=${q}`, {
+      const res = await request<any>(`/friends/search?q=${q}`, {
         method: 'GET',
       });
+      const data = (res.data as any)?.data || res.data;
       return {
         success: res.success,
-        data: res.data,
+        data: Array.isArray(data) ? data : [],
         message: res.message,
       };
     },
@@ -449,13 +443,15 @@ export const api = {
       message?: string;
     }> {
       const q = unreadOnly ? '?unread=true' : '';
-      const res = await request<any[]>(`/notifications${q}`, {
+      const res = await request<any>(`/notifications${q}`, {
         method: 'GET',
       });
+      const data = (res.data as any)?.data || (Array.isArray(res.data) ? res.data : []);
+      const unreadCount = (res.data as any)?.unreadCount ?? (res as any)?.unreadCount ?? 0;
       return {
         success: res.success,
-        data: res.data,
-        unreadCount: (res as any).unreadCount,
+        data: Array.isArray(data) ? data : [],
+        unreadCount,
         message: res.message,
       };
     },

@@ -100,7 +100,7 @@ export async function createNotificationHelper(
         type,
         title,
         message,
-        metadata: metadata ? JSON.stringify(metadata) : undefined,
+        metadata: metadata || undefined,
         isRead: false,
       },
     });

@@ -105,14 +105,32 @@ export function App() {
     onConfirm: () => {},
   });
 
-  const [notification, setNotification] = useState<{ message: string; type?: 'info' | 'success' } | null>(null);
+  const [notification, setNotification] = useState<{
+    title?: string;
+    message: string;
+    type?: 'info' | 'success' | 'poke' | 'friend';
+    action?: { label: string; onClick: () => void };
+  } | null>(null);
 
-  const showNotification = useCallback((message: string, type: 'info' | 'success' = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => {
-      setNotification(null);
-    }, 3500);
-  }, []);
+  const showNotification = useCallback(
+    (
+      message: string,
+      type: 'info' | 'success' | 'poke' | 'friend' = 'success',
+      title?: string,
+      action?: { label: string; onClick: () => void }
+    ) => {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([150, 80, 150]);
+        } catch {}
+      }
+      setNotification({ title, message, type, action });
+      setTimeout(() => {
+        setNotification(null);
+      }, 7000);
+    },
+    []
+  );
 
   // Poll cloud notifications and friend requests with instant phone/browser alert dispatch
   const pollCloudNotifications = useCallback(async () => {
@@ -125,7 +143,8 @@ export function App() {
         const unreadIds = unreadList.map((n: any) => n.id);
 
         unreadList.forEach((n: any) => {
-          showNotification(`${n.title}\n${n.message}`, 'info');
+          const notifType = n.type === 'POKE_CHALLENGE' ? 'poke' : n.type === 'FRIEND_REQUEST' ? 'friend' : 'info';
+          showNotification(n.message, notifType, n.title);
           notificationService.sendNotification(n.title, n.message);
         });
 
@@ -148,7 +167,18 @@ export function App() {
             const title = '📩 Kotta Friend Request!';
             const body = `${senderName} neeku friend request pampadu! Connect avvandi! 🎯`;
             notificationService.sendNotification(title, body);
-            showNotification(`📩 ${senderName} sent you a friend request!`, 'info');
+            showNotification(
+              `${senderName} sent you a friend request! Accept to start tracking goals together.`,
+              'friend',
+              '📩 Kotta Friend Request!',
+              {
+                label: 'View Requests',
+                onClick: () => {
+                  setLeaderboardInitialTab('requests');
+                  setIsLeaderboardOpen(true);
+                },
+              }
+            );
           });
         }
         prevIncomingIdsRef.current = currentIds;
@@ -161,7 +191,7 @@ export function App() {
   useEffect(() => {
     if (!isAuthenticated) return;
     pollCloudNotifications();
-    const interval = setInterval(pollCloudNotifications, 6000);
+    const interval = setInterval(pollCloudNotifications, 5000);
     return () => clearInterval(interval);
   }, [isAuthenticated, pollCloudNotifications]);
 
@@ -780,11 +810,66 @@ export function App() {
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'light bg-slate-100/70 text-slate-900'} flex flex-col pb-16`}>
-      {/* Toast Notification */}
+      {/* Modern High-Energy Mobile & Desktop Floating Toast Banner */}
       {notification && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl text-xs font-semibold text-slate-900 dark:text-white animate-in slide-in-from-bottom-5 fade-in duration-200">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-          <span>{notification.message}</span>
+        <div className="fixed top-4 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-[130] animate-in slide-in-from-top-4 fade-in duration-200">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2 relative overflow-hidden">
+            <div className={`absolute top-0 left-0 right-0 h-1 ${
+              notification.type === 'poke'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                : notification.type === 'friend'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-500'
+                : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+            }`} />
+
+            <div className="flex items-start justify-between gap-2.5 pt-0.5">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 shadow-sm ${
+                  notification.type === 'poke'
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600'
+                    : notification.type === 'friend'
+                    ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600'
+                    : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600'
+                }`}>
+                  {notification.type === 'poke' ? '👉' : notification.type === 'friend' ? '📩' : '✨'}
+                </div>
+
+                <div className="min-w-0">
+                  {notification.title && (
+                    <h5 className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight">
+                      {notification.title}
+                    </h5>
+                  )}
+                  <p className="text-[11.5px] text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap mt-0.5">
+                    {notification.message}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setNotification(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            {notification.action && (
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    notification.action?.onClick();
+                    setNotification(null);
+                  }}
+                  className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
+                >
+                  {notification.action.label}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
