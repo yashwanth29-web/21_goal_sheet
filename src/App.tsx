@@ -19,6 +19,7 @@ import {
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { notificationService } from './utils/notificationService';
+import { getFreshAccountabilityMessage } from './utils/accountabilityTanglishMessages';
 import { Header } from './components/Header';
 import { Navigation, type ActivePage } from './components/Navigation';
 import { Statistics } from './components/Statistics';
@@ -440,8 +441,26 @@ export function App() {
     const res = await api.goals.updateStatus(slotId, dateKey, newStatus, previous?.note);
     if (!res.success) {
       showNotification(res.message || 'Status saved locally. Cloud sync pending.', 'info');
+    } else {
+      const slotObj = slots.find((s) => s.id === slotId);
+      const taskTitle = slotObj?.workGoal || slotObj?.goalTitle || 'Daily Task';
+      const myName = user?.name || 'You';
+
+      if (newStatus === 'completed') {
+        const notif = getFreshAccountabilityMessage('completed', myName, taskTitle, slotObj?.time || '');
+        showNotification(`🔥 ${notif.title}`, 'success');
+        if (notificationService.isEnabled()) {
+          notificationService.sendNotification(notif.title, notif.body);
+        }
+      } else if (newStatus === 'missed') {
+        const notif = getFreshAccountabilityMessage('missed', myName, taskTitle, slotObj?.time || '');
+        showNotification(`🚨 ${notif.title}`, 'info');
+        if (notificationService.isEnabled()) {
+          notificationService.sendNotification(notif.title, notif.body);
+        }
+      }
     }
-  }, [statusRecords, showNotification]);
+  }, [statusRecords, showNotification, slots, user]);
 
   const handleMarkAllDayCompleted = useCallback(async (dateKey: string) => {
     const timestamp = new Date().toISOString();
@@ -472,11 +491,18 @@ export function App() {
 
       return updated;
     });
-    showNotification(`Marked all goals for ${dateKey} as Completed!`);
+
+    const myName = user?.name || 'You';
+    const notif = getFreshAccountabilityMessage('streak_sweep', myName, 'All Scheduled Goals', '');
+    showNotification(`👑 ${notif.title}`, 'success');
+    if (notificationService.isEnabled()) {
+      notificationService.sendNotification(notif.title, notif.body);
+    }
 
     // PostgreSQL Batch Sync
     await api.goals.batchStatus(dateKey, 'completed');
-  }, [slots, showNotification]);
+  }, [slots, showNotification, user]);
+
 
   const handleResetDayStatuses = useCallback(async (dateKey: string) => {
     const timestamp = new Date().toISOString();
@@ -625,8 +651,20 @@ export function App() {
     }));
 
     await api.goals.updateStatus(noteModalData.slot.id, noteModalData.dateKey, currentStatus, noteText);
-    showNotification('Note saved successfully!');
+
+    if (noteText.startsWith('[PRODUCTIVE]: ')) {
+      const cleanHustle = noteText.replace('[PRODUCTIVE]: ', '');
+      const myName = user?.name || 'You';
+      const notif = getFreshAccountabilityMessage('productive_work', myName, 'Alternate Slot', '', cleanHustle);
+      showNotification(`🌿 ${notif.title}`, 'success');
+      if (notificationService.isEnabled()) {
+        notificationService.sendNotification(notif.title, notif.body);
+      }
+    } else {
+      showNotification('Note saved successfully!');
+    }
   };
+
 
   const handleDeleteNote = async () => {
     if (!noteModalData.slot) return;

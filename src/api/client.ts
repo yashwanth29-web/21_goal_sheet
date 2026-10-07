@@ -348,7 +348,24 @@ export const api = {
       };
     },
 
+    async toggleAccountabilityPartner(
+      friendshipId?: string,
+      targetUserId?: string,
+      enable?: boolean
+    ): Promise<{ success: boolean; isAccountabilityPartner?: boolean; message?: string }> {
+      const res = await request<{ isAccountabilityPartner: boolean; message: string }>('/friends/toggle-partner', {
+        method: 'POST',
+        body: JSON.stringify({ friendshipId, targetUserId, enable }),
+      });
+      return {
+        success: res.success,
+        isAccountabilityPartner: res.data?.isAccountabilityPartner,
+        message: res.data?.message || res.message,
+      };
+    },
+
     async search(query: string = ''): Promise<{
+
       success: boolean;
       data?: Array<{
         id: string;

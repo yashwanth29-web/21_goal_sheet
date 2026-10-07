@@ -10,6 +10,7 @@
 
 import type { Goal, StatusRecordsMap } from '../types';
 import { getSmartTanglishNotification } from './tanglishNotificationMessages';
+import { getFreshAccountabilityMessage } from './accountabilityTanglishMessages';
 
 export const notificationService = {
   isSupported(): boolean {
@@ -209,4 +210,21 @@ export const notificationService = {
       `🔥 Super bro! ${friendName} mee friend request accept chesadu! Ippudu iddaru kalisi daily goals track cheskondi! 🎯`
     );
   },
+
+  /**
+   * Fire Accountability Partner Action Notification
+   * Triggers when your partner marks a goal as completed, missed, logs productive work, or sweeps the day.
+   */
+  notifyAccountabilityPartnerAction(
+    category: 'completed' | 'missed' | 'productive_work' | 'streak_sweep' | 'poke_challenge',
+    partnerName: string,
+    task: string,
+    time: string,
+    extra?: string
+  ): void {
+    const msg = getFreshAccountabilityMessage(category, partnerName, task, time, extra);
+    this.sendNotification(msg.title, msg.body);
+  },
+
 };
+

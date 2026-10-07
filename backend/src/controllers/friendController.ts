@@ -254,6 +254,7 @@ export async function getFriendsAndRequests(req: AuthRequest, res: Response): Pr
           friendshipId: f.id,
           friend: friendUser,
           connectedAt: f.updatedAt,
+          isAccountabilityPartner: Boolean(f.isAccountabilityPartner),
         });
       } else if (f.status === 'PENDING') {
         if (f.receiverId === currentUserId) {
@@ -284,11 +285,78 @@ export async function getFriendsAndRequests(req: AuthRequest, res: Response): Pr
     });
   } catch (err: any) {
     console.error('getFriendsAndRequests error:', err);
-    res.status(500).json({ success: false, message: 'Failed to fetch friends & requests' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve friends list' });
   }
 }
 
 /**
+ * Toggle Accountability Partner status with a friend
+ */
+export async function toggleAccountabilityPartner(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const currentUserId = req.user?.id;
+    const { friendshipId, targetUserId, enable } = req.body;
+
+    if (!currentUserId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    let friendship = null;
+    if (friendshipId) {
+      friendship = await (prisma as any).friendship.findUnique({
+        where: { id: friendshipId },
+        include: { sender: true, receiver: true },
+      });
+    } else if (targetUserId) {
+      friendship = await (prisma as any).friendship.findFirst({
+        where: {
+          OR: [
+            { senderId: currentUserId, receiverId: targetUserId },
+            { senderId: targetUserId, receiverId: currentUserId },
+          ],
+        },
+        include: { sender: true, receiver: true },
+      });
+    }
+
+    if (!friendship || friendship.status !== 'ACCEPTED') {
+      res.status(404).json({ success: false, message: 'Active friendship connection not found' });
+      return;
+    }
+
+    if (friendship.senderId !== currentUserId && friendship.receiverId !== currentUserId) {
+      res.status(403).json({ success: false, message: 'Unauthorized to modify this partnership' });
+      return;
+    }
+
+    const nextState = typeof enable === 'boolean' ? enable : !friendship.isAccountabilityPartner;
+
+    const updated = await (prisma as any).friendship.update({
+      where: { id: friendship.id },
+      data: {
+        isAccountabilityPartner: nextState,
+      },
+    });
+
+    const partner = friendship.senderId === currentUserId ? friendship.receiver : friendship.sender;
+
+    res.status(200).json({
+      success: true,
+      message: nextState
+        ? `🔥 ${partner.name} is now your Accountability Partner! Live fire notifications activated.`
+        : `Accountability Partner disabled for ${partner.name}.`,
+      isAccountabilityPartner: nextState,
+      friendship: updated,
+    });
+  } catch (err: any) {
+    console.error('toggleAccountabilityPartner error:', err);
+    res.status(500).json({ success: false, message: 'Failed to toggle accountability partner' });
+  }
+}
+
+/**
+
  * Get detailed daily tracker of a friend
  * Enforces permission: Allowed ONLY if self OR accepted friends
  */

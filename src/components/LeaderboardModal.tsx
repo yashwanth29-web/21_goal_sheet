@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { LeaderboardUser } from '../types';
 import { api } from '../api/client';
 import { FriendTrackerModal } from './FriendTrackerModal';
+import { getFreshAccountabilityMessage } from '../utils/accountabilityTanglishMessages';
 import {
   Trophy,
   X,
@@ -51,6 +52,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     }
   }, [isOpen, initialTab]);
 
+  const [accountabilityPartnerIds, setAccountabilityPartnerIds] = useState<Set<string>>(new Set());
+
   const currentUserCardRef = useRef<HTMLDivElement | null>(null);
 
   const fetchData = async () => {
@@ -71,6 +74,13 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
       if (friendsRes.success && friendsRes.data) {
         setIncomingRequests(friendsRes.data.incomingRequests || []);
+        const partnerSet = new Set<string>();
+        (friendsRes.data.friends || []).forEach((f: any) => {
+          if (f.isAccountabilityPartner && f.friend?.id) {
+            partnerSet.add(f.friend.id);
+          }
+        });
+        setAccountabilityPartnerIds(partnerSet);
       }
     } catch (err: any) {
       console.error('Failed to load leaderboard:', err);
@@ -79,6 +89,42 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       setIsLoading(false);
     }
   };
+
+  const handleToggleAccountabilityPartner = async (
+    targetUserId: string,
+    friendshipId?: string,
+    e?: React.MouseEvent
+  ) => {
+    if (e) e.stopPropagation();
+    setActionLoadingId(targetUserId);
+    const currentlyActive = accountabilityPartnerIds.has(targetUserId);
+    try {
+      const res = await api.friends.toggleAccountabilityPartner(friendshipId, targetUserId, !currentlyActive);
+      if (res.success) {
+        setAccountabilityPartnerIds((prev) => {
+          const next = new Set(prev);
+          if (res.isAccountabilityPartner) {
+            next.add(targetUserId);
+          } else {
+            next.delete(targetUserId);
+          }
+          return next;
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle partner:', err);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handlePokeFriend = (friendName: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const msg = getFreshAccountabilityMessage('poke_challenge', friendName, 'Daily Goal', '');
+    alert(`👉 Poked ${friendName}!\n\n${msg.title}\n${msg.body}`);
+  };
+
+
 
   useEffect(() => {
     if (isOpen) {
@@ -670,9 +716,53 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                         </span>
                       </div>
                     </div>
+
+                    {/* Accountability Partner Action Strip */}
+                    {!isMe && (
+                      <div
+                        className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/40 flex items-center justify-between gap-2 flex-wrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={actionLoadingId === u.id}
+                            onClick={(e) => handleToggleAccountabilityPartner(u.id, u.friendshipRequestId, e)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                              accountabilityPartnerIds.has(u.id)
+                                ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-300 dark:ring-orange-600'
+                                : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                            }`}
+                            title={
+                              accountabilityPartnerIds.has(u.id)
+                                ? '🔥 Live partner enabled: notifications synced!'
+                                : 'Enable to receive & share real-time fire progress alerts'
+                            }
+                          >
+                            <Flame className={`w-3 h-3 ${accountabilityPartnerIds.has(u.id) ? 'fill-white text-white animate-pulse' : 'text-slate-400'}`} />
+                            <span>
+                              {accountabilityPartnerIds.has(u.id)
+                                ? '🔥 Accountability Partner (Active)'
+                                : '⚡ Connect Partner'}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Poke Friend */}
+                        <button
+                          type="button"
+                          onClick={(e) => handlePokeFriend(u.name, e)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-[11px] font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+                          title="Send a high-energy wake up poke"
+                        >
+                          <span>👉 Poke</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               }
+
 
               // TAB 2: FIND MEMBERS (Discovery list to send requests; scores are private until accepted!)
               return (
