@@ -161,3 +161,33 @@ export function sortSlotsByTime<T extends { time: string; order?: number }>(slot
     return (a.order ?? 0) - (b.order ?? 0);
   });
 }
+
+export function getSlotUnlockInfo(dateKey: string, timeStr: string): { isUnlocked: boolean; unlockTimeStr: string } {
+  const now = new Date();
+  const todayKey = formatDateKey(now);
+
+  if (dateKey < todayKey) {
+    // Past day: always unlocked
+    return { isUnlocked: true, unlockTimeStr: '' };
+  }
+  if (dateKey > todayKey) {
+    // Future day: locked until that date
+    return { isUnlocked: false, unlockTimeStr: 'Future Date' };
+  }
+
+  // Today: check end time
+  const { endTime, startTime } = parseTimeRange(timeStr);
+  const targetTimeStr = endTime || startTime;
+  const targetMinutes = timeToMinutes(targetTimeStr);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  if (currentMinutes >= targetMinutes) {
+    return { isUnlocked: true, unlockTimeStr: targetTimeStr };
+  }
+
+  return {
+    isUnlocked: false,
+    unlockTimeStr: targetTimeStr || startTime,
+  };
+}
+

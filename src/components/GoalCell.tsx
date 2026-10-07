@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ScheduleSlot, GoalStatus, CellStatusRecord } from '../types';
 import { StatusDropdown } from './StatusDropdown';
-import { MoreVertical, Edit2, Trash2, StickyNote, RotateCcw } from 'lucide-react';
+import { MoreVertical, Edit2, Trash2, StickyNote, RotateCcw, Leaf } from 'lucide-react';
 
 interface GoalCellProps {
   slot: ScheduleSlot;
@@ -28,7 +28,10 @@ export const GoalCell: React.FC<GoalCellProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const status: GoalStatus = record?.status || 'none';
-  const hasNote = Boolean(record?.note && record.note.trim().length > 0);
+  const rawNote = record?.note || '';
+  const isProductiveNote = rawNote.startsWith('[PRODUCTIVE]: ');
+  const cleanNote = isProductiveNote ? rawNote.replace('[PRODUCTIVE]: ', '') : rawNote;
+  const hasNote = Boolean(cleanNote && cleanNote.trim().length > 0);
   const goalTitle = slot.workGoal || slot.goalTitle || 'Goal';
 
   useEffect(() => {
@@ -51,7 +54,11 @@ export const GoalCell: React.FC<GoalCellProps> = ({
 
   const normalizedStatus = status.toLowerCase();
 
-  if (normalizedStatus === 'completed') {
+  if (isProductiveNote) {
+    cellStatusStyle =
+      'border-l-4 border-l-emerald-500 border-t-emerald-200 border-r-emerald-200 border-b-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 dark:border-l-emerald-400 dark:border-t-emerald-950/60 dark:border-r-emerald-950/60 dark:border-b-emerald-950/60 dark:bg-emerald-950/20';
+    indicatorGlow = 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]';
+  } else if (normalizedStatus === 'completed') {
     cellStatusStyle =
       'border-emerald-300 bg-emerald-50/70 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30';
     indicatorGlow = 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]';
@@ -73,7 +80,12 @@ export const GoalCell: React.FC<GoalCellProps> = ({
     >
       <div className="flex items-center justify-between gap-1 mb-1.5">
         <div className="flex items-center gap-1.5">
-          {status !== 'none' ? (
+          {isProductiveNote ? (
+            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded-md" title={`Productive Alternate Work: ${cleanNote}`}>
+              <Leaf className="w-2.5 h-2.5" />
+              <span>Hustle</span>
+            </span>
+          ) : status !== 'none' ? (
             <span className={`w-2 h-2 rounded-full shrink-0 ${indicatorGlow}`} />
           ) : (
             <span className="w-2 h-2 rounded-full shrink-0 bg-slate-300 dark:bg-slate-700" />
@@ -87,12 +99,13 @@ export const GoalCell: React.FC<GoalCellProps> = ({
                 onOpenNote(slot, dateKey, record?.note);
               }}
               className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors p-0.5"
-              title={`Note: ${record?.note}`}
+              title={`Note: ${cleanNote}`}
             >
               <StickyNote className="w-3 h-3 fill-indigo-400/20" />
             </button>
           )}
         </div>
+
 
         <div className="relative" ref={menuRef}>
           <button

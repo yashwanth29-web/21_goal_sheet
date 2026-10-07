@@ -22,16 +22,35 @@ export const NoteModal: React.FC<NoteModalProps> = ({
   onDeleteNote,
 }) => {
   const [note, setNote] = useState('');
+  const [isProductiveWork, setIsProductiveWork] = useState(false);
 
   useEffect(() => {
-    setNote(initialNote || '');
+    if (initialNote) {
+      if (initialNote.startsWith('[PRODUCTIVE]: ')) {
+        setIsProductiveWork(true);
+        setNote(initialNote.replace('[PRODUCTIVE]: ', ''));
+      } else {
+        setIsProductiveWork(false);
+        setNote(initialNote);
+      }
+    } else {
+      setIsProductiveWork(false);
+      setNote('');
+    }
   }, [initialNote, isOpen]);
 
   if (!isOpen || !slot) return null;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveNote(note.trim());
+    const cleanNote = note.trim();
+    if (!cleanNote) {
+      onDeleteNote();
+      onClose();
+      return;
+    }
+    const finalNote = isProductiveWork ? `[PRODUCTIVE]: ${cleanNote}` : cleanNote;
+    onSaveNote(finalNote);
     onClose();
   };
 
@@ -54,7 +73,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Daily Goal Note</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {dateKey} • {slot.time} • {slot.goalTitle}
+                {dateKey} • {slot.time} • {slot.goalTitle || slot.workGoal}
               </p>
             </div>
           </div>
@@ -62,7 +81,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -77,10 +96,47 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               rows={4}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. Completed 3 LeetCode problems (Graph DFS/BFS). Took 45 mins."
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-2xl p-3.5 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none resize-none leading-relaxed"
+              placeholder={
+                isProductiveWork
+                  ? 'e.g. Spent 2 hours fixing urgent server database hotfix instead of planned routine. Zero time wasted!'
+                  : 'e.g. Completed 3 LeetCode problems (Graph DFS/BFS). Took 45 mins.'
+              }
+              className={`w-full border focus:ring-1 rounded-2xl p-3.5 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none resize-none leading-relaxed transition-colors ${
+                isProductiveWork
+                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-700 focus:border-emerald-500 focus:ring-emerald-500'
+                  : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:border-indigo-500 focus:ring-indigo-500'
+              }`}
               autoFocus
             />
+          </div>
+
+          {/* Productive Unscheduled Work Toggle */}
+          <div
+            onClick={() => setIsProductiveWork(!isProductiveWork)}
+            className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+              isProductiveWork
+                ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600/60'
+                : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:bg-slate-100/50 dark:hover:bg-slate-800/70'
+            }`}
+          >
+            <div className="pt-0.5">
+              <input
+                type="checkbox"
+                checked={isProductiveWork}
+                onChange={() => {}} // handled by parent onClick
+                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  🌿 Productive Alternate Work (Unscheduled)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                Worked on something else without wasting time. Adds a green highlight line for this slot row and does not affect your monthly schedule score.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-2">
@@ -99,13 +155,17 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-white text-xs font-bold shadow-md transition-all cursor-pointer ${
+                  isProductiveWork
+                    ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                    : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30'
+                }`}
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>Save Note</span>
