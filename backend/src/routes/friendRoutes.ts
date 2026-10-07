@@ -7,6 +7,7 @@ import {
   searchUsers,
   removeFriend,
   toggleAccountabilityPartner,
+  pokeFriend,
 } from '../controllers/friendController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -20,6 +21,7 @@ router.post('/request', sendFriendRequest);
 router.post('/respond', respondFriendRequest);
 router.post('/remove', removeFriend);
 router.post('/toggle-partner', toggleAccountabilityPartner);
+router.post('/poke', pokeFriend);
 router.get('/list', getFriendsAndRequests);
 router.get('/tracker/:userId', getFriendDetailedTracker);
 

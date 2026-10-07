@@ -364,6 +364,21 @@ export const api = {
       };
     },
 
+    async poke(
+      targetUserId: string,
+      title?: string,
+      body?: string
+    ): Promise<{ success: boolean; message?: string }> {
+      const res = await request<{ message: string }>('/friends/poke', {
+        method: 'POST',
+        body: JSON.stringify({ targetUserId, title, body }),
+      });
+      return {
+        success: res.success,
+        message: res.data?.message || res.message,
+      };
+    },
+
     async search(query: string = ''): Promise<{
 
       success: boolean;

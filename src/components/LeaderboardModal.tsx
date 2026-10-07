@@ -53,8 +53,24 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   }, [isOpen, initialTab]);
 
   const [accountabilityPartnerIds, setAccountabilityPartnerIds] = useState<Set<string>>(new Set());
+  const [modalPopup, setModalPopup] = useState<{
+    type: 'poke' | 'partner' | 'success' | 'info' | 'error';
+    title: string;
+    body: string;
+    badge?: string;
+  } | null>(null);
 
   const currentUserCardRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-dismiss in-modal popups after 8 seconds
+  useEffect(() => {
+    if (modalPopup) {
+      const timer = setTimeout(() => {
+        setModalPopup(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [modalPopup]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -93,6 +109,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   const handleToggleAccountabilityPartner = async (
     targetUserId: string,
     friendshipId?: string,
+    friendName?: string,
     e?: React.MouseEvent
   ) => {
     if (e) e.stopPropagation();
@@ -101,30 +118,61 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     try {
       const res = await api.friends.toggleAccountabilityPartner(friendshipId, targetUserId, !currentlyActive);
       if (res.success) {
+        const nextStatus = Boolean(res.isAccountabilityPartner);
         setAccountabilityPartnerIds((prev) => {
           const next = new Set(prev);
-          if (res.isAccountabilityPartner) {
+          if (nextStatus) {
             next.add(targetUserId);
           } else {
             next.delete(targetUserId);
           }
           return next;
         });
+
+        setModalPopup({
+          type: 'partner',
+          title: nextStatus ? '🔥 Accountability Partner Connected!' : '⚡ Partner Disconnected',
+          body: nextStatus
+            ? `You and ${friendName || 'your friend'} are now linked! Whenever either of you completes a goal, misses a slot, or logs productive work, instant high-energy Telugu-English alerts will arrive on their phone!`
+            : `Accountability partner link with ${friendName || 'friend'} is paused.`,
+          badge: nextStatus ? '⚡ Synced Live Across Devices' : undefined,
+        });
       }
     } catch (err: any) {
       console.error('Failed to toggle partner:', err);
+      setModalPopup({
+        type: 'error',
+        title: 'Partner Update Error',
+        body: err.message || 'Could not update accountability partner status.',
+      });
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  const handlePokeFriend = (friendName: string, e?: React.MouseEvent) => {
+  const handlePokeFriend = async (
+    targetUserId: string,
+    friendName: string,
+    e?: React.MouseEvent
+  ) => {
     if (e) e.stopPropagation();
     const msg = getFreshAccountabilityMessage('poke_challenge', friendName, 'Daily Goal', '');
-    alert(`👉 Poked ${friendName}!\n\n${msg.title}\n${msg.body}`);
+
+    // 1. Show high-energy styled pop-up immediately
+    setModalPopup({
+      type: 'poke',
+      title: `👉 Poked ${friendName}!`,
+      body: `${msg.title}\n\n${msg.body}`,
+      badge: `⚡ Notification Delivered to ${friendName}'s Phone`,
+    });
+
+    // 2. Dispatch to cloud database for the friend's device
+    try {
+      await api.friends.poke(targetUserId, msg.title, msg.body);
+    } catch (err) {
+      console.error('Failed to send poke to friend:', err);
+    }
   };
-
-
 
   useEffect(() => {
     if (isOpen) {
@@ -145,12 +193,25 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           );
         }
         await fetchData();
-        alert(res.message || 'Friend request sent successfully! 🚀');
+        setModalPopup({
+          type: 'success',
+          title: '🚀 Friend Request Sent!',
+          body: 'Your friend request has been sent! An instant alert was delivered to their goal inbox & phone.',
+          badge: 'Cloud Alert Dispatched',
+        });
       } else {
-        alert(res.message || 'Failed to send friend request');
+        setModalPopup({
+          type: 'error',
+          title: 'Request Not Sent',
+          body: res.message || 'Failed to send friend request',
+        });
       }
     } catch (err: any) {
-      alert(err.message || 'Error sending friend request');
+      setModalPopup({
+        type: 'error',
+        title: 'Error',
+        body: err.message || 'Error sending friend request',
+      });
     } finally {
       setActionLoadingId(null);
     }
@@ -163,11 +224,26 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
       const res = await api.friends.respond(requestId, action);
       if (res.success) {
         await fetchData();
+        setModalPopup({
+          type: 'success',
+          title: action === 'ACCEPT' ? '🎉 Friend Request Accepted!' : 'Friend Request Declined',
+          body: action === 'ACCEPT'
+            ? 'You are now connected friends! You can now view each other in Friends Rankings and connect as Accountability Partners.'
+            : 'Friend request was declined.',
+        });
       } else {
-        alert(res.message || 'Failed to respond to request');
+        setModalPopup({
+          type: 'error',
+          title: 'Action Failed',
+          body: res.message || 'Failed to respond to request',
+        });
       }
     } catch (err: any) {
-      alert(err.message || 'Error responding to request');
+      setModalPopup({
+        type: 'error',
+        title: 'Error',
+        body: err.message || 'Error responding to request',
+      });
     } finally {
       setActionLoadingId(null);
     }
@@ -200,11 +276,24 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           )
         );
         await fetchData();
+        setModalPopup({
+          type: 'info',
+          title: 'Friend Removed',
+          body: `${friendName || 'Friend'} was removed from your friends list.`,
+        });
       } else {
-        alert(res.message || 'Failed to remove friend');
+        setModalPopup({
+          type: 'error',
+          title: 'Failed to Remove',
+          body: res.message || 'Failed to remove friend',
+        });
       }
     } catch (err: any) {
-      alert(err.message || 'Error removing friend');
+      setModalPopup({
+        type: 'error',
+        title: 'Error',
+        body: err.message || 'Error removing friend',
+      });
     } finally {
       setActionLoadingId(null);
     }
@@ -727,7 +816,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                           <button
                             type="button"
                             disabled={actionLoadingId === u.id}
-                            onClick={(e) => handleToggleAccountabilityPartner(u.id, u.friendshipRequestId, e)}
+                            onClick={(e) => handleToggleAccountabilityPartner(u.id, u.friendshipRequestId, u.name, e)}
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
                               accountabilityPartnerIds.has(u.id)
                                 ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-300 dark:ring-orange-600'
@@ -751,8 +840,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                         {/* Poke Friend */}
                         <button
                           type="button"
-                          onClick={(e) => handlePokeFriend(u.name, e)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-[11px] font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+                          onClick={(e) => handlePokeFriend(u.id, u.name, e)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-[11px] font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer active:scale-95"
                           title="Send a high-energy wake up poke"
                         >
                           <span>👉 Poke</span>
@@ -899,6 +988,73 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modern In-App Floating Alert / Pop-Up Modal */}
+      {modalPopup && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xl p-5 space-y-4 relative overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Vibrant Background Aura Glow */}
+            <div className={`absolute -top-10 -right-10 w-36 h-36 rounded-full blur-2xl pointer-events-none opacity-60 ${
+              modalPopup.type === 'poke' ? 'bg-amber-500/30' : modalPopup.type === 'partner' ? 'bg-orange-500/35' : 'bg-indigo-500/30'
+            }`} />
+            <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-purple-500/20 rounded-full blur-2xl pointer-events-none opacity-50" />
+
+            {/* Top Row: Icon, Title, Badge & Close */}
+            <div className="flex items-start justify-between gap-2.5 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-2xl shadow-md shrink-0 border ${
+                  modalPopup.type === 'poke'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700/60 text-amber-500'
+                    : modalPopup.type === 'partner'
+                    ? 'bg-orange-50 dark:bg-orange-950/60 border-orange-300 dark:border-orange-700/60 text-orange-500'
+                    : modalPopup.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700/60 text-emerald-500'
+                    : modalPopup.type === 'error'
+                    ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-700/60 text-rose-500'
+                    : 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700/60 text-indigo-500'
+                }`}>
+                  {modalPopup.type === 'poke' ? '👉' : modalPopup.type === 'partner' ? '🔥' : modalPopup.type === 'success' ? '🚀' : modalPopup.type === 'error' ? '⚠️' : '✨'}
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                    {modalPopup.title}
+                  </h4>
+                  {modalPopup.badge && (
+                    <span className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                      {modalPopup.badge}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalPopup(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Message Body Content Card */}
+            <div className="relative z-10 bg-slate-50/90 dark:bg-slate-850/80 border border-slate-100 dark:border-slate-800/80 rounded-2xl p-3.5 text-xs text-slate-700 dark:text-slate-200 font-medium whitespace-pre-wrap leading-relaxed shadow-inner">
+              {modalPopup.body}
+            </div>
+
+            {/* Bottom Button */}
+            <div className="relative z-10 pt-1">
+              <button
+                type="button"
+                onClick={() => setModalPopup(null)}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-extrabold shadow-md shadow-indigo-500/25 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>Awesome, Got It! 👍</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detailed Friend Tracker Modal */}
       {selectedFriendForTracker && (
