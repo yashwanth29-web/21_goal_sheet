@@ -34,9 +34,12 @@ model User {
 
   sentFriendships     Friendship[] @relation("SentFriendships")
   receivedFriendships Friendship[] @relation("ReceivedFriendships")
+  notificationsReceived AppNotification[]
+  notificationsSent     AppNotification[] @relation("NotificationSender")
 
   @@map("users")
 }
+
 
 enum FriendshipStatus {
   PENDING
@@ -113,3 +116,22 @@ model DailyStatus {
   @@index([userId, date])
   @@map("daily_statuses")
 }
+
+model AppNotification {
+  id        String   @id @default(uuid())
+  userId    String   // The user receiving the notification
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderId  String?
+  sender    User?    @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
+  type      String   // 'FRIEND_REQUEST' | 'REQUEST_ACCEPTED' | 'GOAL_COMPLETED' | 'GOAL_MISSED' | 'PRODUCTIVE_WORK' | 'POKE' | 'STREAK_SWEEP'
+  title     String
+  message   String
+  metadata  Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@map("app_notifications")
+}
+

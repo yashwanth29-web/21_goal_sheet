@@ -424,5 +424,35 @@ export const api = {
       };
     },
   },
+
+  // In-App & Cloud Notifications API
+  notifications: {
+    async get(unreadOnly: boolean = false): Promise<{
+      success: boolean;
+      data?: any[];
+      unreadCount?: number;
+      message?: string;
+    }> {
+      const q = unreadOnly ? '?unread=true' : '';
+      const res = await request<any[]>(`/notifications${q}`, {
+        method: 'GET',
+      });
+      return {
+        success: res.success,
+        data: res.data,
+        unreadCount: (res as any).unreadCount,
+        message: res.message,
+      };
+    },
+
+    async markAsRead(notificationIds?: string[], markAll: boolean = false): Promise<{ success: boolean }> {
+      const res = await request<{ message: string }>('/notifications/mark-read', {
+        method: 'POST',
+        body: JSON.stringify({ notificationIds, markAll }),
+      });
+      return { success: res.success };
+    },
+  },
 };
+
 

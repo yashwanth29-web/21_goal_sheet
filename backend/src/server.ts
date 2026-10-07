@@ -6,8 +6,10 @@ import authRoutes from './routes/authRoutes.js';
 import goalRoutes from './routes/goalRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import friendRoutes from './routes/friendRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 const app = express();
+
 
 // Middleware: robust CORS allowing any origin dynamically
 app.use(
@@ -62,6 +64,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/friends', friendRoutes);
+app.use('/api/notifications', notificationRoutes);
+
 
 // 404 Handler
 app.use((req: Request, res: Response) => {

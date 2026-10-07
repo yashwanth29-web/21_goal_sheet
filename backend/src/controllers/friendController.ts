@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { prisma } from '../config/prisma.js';
 import { AuthRequest } from '../middleware/auth.js';
+import { createNotificationHelper } from './notificationController.js';
+
 
 /**
  * Send a friend request to another user
@@ -88,7 +90,21 @@ export async function sendFriendRequest(req: AuthRequest, res: Response): Promis
         receiverId: targetUserId,
         status: 'PENDING',
       },
+      include: {
+        sender: { select: { id: true, name: true, email: true } },
+      },
     });
+
+    // Notify the receiver in their notification inbox
+    const senderName = newFriendship.sender?.name || 'Someone';
+    await createNotificationHelper(
+      targetUserId,
+      senderId,
+      'FRIEND_REQUEST',
+      '📩 Kotta Friend Request Vachindi!',
+      `🔥 Rey macha! ${senderName} neeku friend request pampadu! Accept chesi daily accountability modalu pettu! 🎯`,
+      { friendshipId: newFriendship.id, senderName }
+    );
 
     res.status(201).json({
       success: true,
@@ -121,6 +137,9 @@ export async function respondFriendRequest(req: AuthRequest, res: Response): Pro
 
     const request = await (prisma as any).friendship.findUnique({
       where: { id: requestId },
+      include: {
+        receiver: { select: { id: true, name: true } },
+      },
     });
 
     if (!request) {
@@ -140,6 +159,18 @@ export async function respondFriendRequest(req: AuthRequest, res: Response): Pro
       },
     });
 
+    if (action === 'ACCEPT') {
+      const accepterName = request.receiver?.name || 'Your friend';
+      await createNotificationHelper(
+        request.senderId,
+        currentUserId,
+        'REQUEST_ACCEPTED',
+        '🎉 Friend Request Accepted!',
+        `🔥 Super bro! ${accepterName} mee friend request accept chesadu! Ippudu iddaru kalisi daily goals track cheskondi! 🏆`,
+        { friendshipId: request.id, accepterName }
+      );
+    }
+
     res.status(200).json({
       success: true,
       message: action === 'ACCEPT' ? 'Friend request accepted!' : 'Friend request declined',
@@ -150,6 +181,7 @@ export async function respondFriendRequest(req: AuthRequest, res: Response): Pro
     res.status(500).json({ success: false, message: 'Failed to respond to friend request' });
   }
 }
+
 
 /**
  * Unfriend / Remove or Cancel a friend connection
@@ -340,6 +372,19 @@ export async function toggleAccountabilityPartner(req: AuthRequest, res: Respons
     });
 
     const partner = friendship.senderId === currentUserId ? friendship.receiver : friendship.sender;
+    const partnerUserId = friendship.senderId === currentUserId ? friendship.receiverId : friendship.senderId;
+    const myUser = friendship.senderId === currentUserId ? friendship.sender : friendship.receiver;
+
+    if (nextState) {
+      await createNotificationHelper(
+        partnerUserId,
+        currentUserId,
+        'ACCOUNTABILITY_PARTNER',
+        '🔥 Accountability Partner Connected!',
+        `⚡ ${myUser.name} connected you as their live Accountability Partner! Real-time fire notifications are active! 🚀`,
+        { friendshipId: friendship.id, partnerName: myUser.name }
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -349,6 +394,7 @@ export async function toggleAccountabilityPartner(req: AuthRequest, res: Respons
       isAccountabilityPartner: nextState,
       friendship: updated,
     });
+
   } catch (err: any) {
     console.error('toggleAccountabilityPartner error:', err);
     res.status(500).json({ success: false, message: 'Failed to toggle accountability partner' });

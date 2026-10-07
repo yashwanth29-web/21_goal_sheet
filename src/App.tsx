@@ -114,42 +114,57 @@ export function App() {
     }, 3500);
   }, []);
 
-  // Poll friend requests and notify user when new requests arrive
-  const checkFriendRequests = useCallback(async () => {
+  // Poll cloud notifications and friend requests with instant phone/browser alert dispatch
+  const pollCloudNotifications = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const res = await api.friends.getList();
-      if (res.success && res.data) {
-        const incoming = res.data.incomingRequests || [];
+      // 1. Check unread notifications in database
+      const notifRes = await api.notifications.get(true);
+      if (notifRes.success && Array.isArray(notifRes.data) && notifRes.data.length > 0) {
+        const unreadList = notifRes.data;
+        const unreadIds = unreadList.map((n: any) => n.id);
+
+        unreadList.forEach((n: any) => {
+          showNotification(`${n.title}\n${n.message}`, 'info');
+          notificationService.sendNotification(n.title, n.message);
+        });
+
+        // Mark as read after alerting
+        await api.notifications.markAsRead(unreadIds);
+      }
+
+      // 2. Poll incoming friend requests
+      const friendsRes = await api.friends.getList();
+      if (friendsRes.success && friendsRes.data) {
+        const incoming = friendsRes.data.incomingRequests || [];
         setPendingRequestsCount(incoming.length);
 
-        // Check if any new requests appeared that weren't known yet
         const currentIds = new Set(incoming.map((r: any) => r.requestId));
         const newRequests = incoming.filter((r: any) => !prevIncomingIdsRef.current.has(r.requestId));
 
-        if (newRequests.length > 0 && prevIncomingIdsRef.current.size > 0) {
+        if (newRequests.length > 0) {
           newRequests.forEach((req: any) => {
-            notificationService.sendNotification(
-              '📩 New Friend Request Received',
-              `${req.from.name} sent you a friend request to connect on Daily Goals!`,
-              '👥'
-            );
-            showNotification(`📩 ${req.from.name} sent you a friend request!`, 'info');
+            const senderName = req.from?.name || 'Someone';
+            const title = '📩 Kotta Friend Request!';
+            const body = `${senderName} neeku friend request pampadu! Connect avvandi! 🎯`;
+            notificationService.sendNotification(title, body);
+            showNotification(`📩 ${senderName} sent you a friend request!`, 'info');
           });
         }
         prevIncomingIdsRef.current = currentIds;
       }
     } catch (err) {
-      console.warn('Failed to poll friend requests:', err);
+      console.warn('Failed to poll cloud notifications:', err);
     }
   }, [isAuthenticated, showNotification]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    checkFriendRequests();
-    const interval = setInterval(checkFriendRequests, 15000);
+    pollCloudNotifications();
+    const interval = setInterval(pollCloudNotifications, 6000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, checkFriendRequests]);
+  }, [isAuthenticated, pollCloudNotifications]);
+
 
 
   // Update HTML class & theme

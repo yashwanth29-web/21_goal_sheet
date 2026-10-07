@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { prisma } from '../config/prisma.js';
 import { AuthRequest } from '../middleware/auth.js';
+import { createNotificationHelper } from './notificationController.js';
+
 
 function parsePeriod(periodStr?: string): 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' {
   if (!periodStr) return 'MORNING';
@@ -272,6 +274,62 @@ export async function updateGoalStatus(req: AuthRequest, res: Response): Promise
       },
     });
 
+    // Broadcast update to all active Accountability Partners
+    try {
+      const userRecord = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+      const myName = userRecord?.name || 'Your Partner';
+
+      const partnerFriendships = await (prisma as any).friendship.findMany({
+        where: {
+          OR: [
+            { senderId: userId, isAccountabilityPartner: true, status: 'ACCEPTED' },
+            { receiverId: userId, isAccountabilityPartner: true, status: 'ACCEPTED' },
+          ],
+        },
+      });
+
+      const noteStr = note ? String(note) : '';
+      const isProductiveNote = noteStr.startsWith('[PRODUCTIVE]: ');
+
+      for (const f of partnerFriendships) {
+        const partnerId = f.senderId === userId ? f.receiverId : f.senderId;
+        if (isProductiveNote) {
+          const cleanHustle = noteStr.replace('[PRODUCTIVE]: ', '');
+          await createNotificationHelper(
+            partnerId,
+            userId,
+            'PRODUCTIVE_WORK',
+            `🌿 ${myName} logged productive unscheduled work!`,
+            `"${cleanHustle}" - Zero time wasted! Thaggedhe le! 🔥`,
+            { goalTitle: goal.workGoal, time: goal.time }
+          );
+        } else if (parsedStatus === 'COMPLETED') {
+          await createNotificationHelper(
+            partnerId,
+            userId,
+            'GOAL_COMPLETED',
+            `🔥 ${myName} completed "${goal.workGoal}"!`,
+            `Slot finished on full fire mode! Nuvvu inka target finish cheyaleda macha? 🚀`,
+            { goalTitle: goal.workGoal, time: goal.time }
+          );
+        } else if (parsedStatus === 'MISSED') {
+          await createNotificationHelper(
+            partnerId,
+            userId,
+            'GOAL_MISSED',
+            `🚨 ${myName} missed "${goal.workGoal}"!`,
+            `Call chesi em jarigindo adugu macha! Accountability pressure start chey! 📞`,
+            { goalTitle: goal.workGoal, time: goal.time }
+          );
+        }
+      }
+    } catch (notifErr) {
+      console.warn('Partner notification dispatch error:', notifErr);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Status updated successfully.',
@@ -284,6 +342,7 @@ export async function updateGoalStatus(req: AuthRequest, res: Response): Promise
         updatedAt: record.updatedAt,
       },
     });
+
   } catch (err: any) {
     console.error('updateGoalStatus error:', err);
     res.status(500).json({ success: false, message: 'Failed to update goal status.' });
