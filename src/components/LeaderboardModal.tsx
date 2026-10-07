@@ -54,17 +54,19 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
   const [accountabilityPartnerIds, setAccountabilityPartnerIds] = useState<Set<string>>(new Set());
   const [modalPopup, setModalPopup] = useState<{
-    type: 'poke' | 'partner' | 'success' | 'info' | 'error';
+    type: 'poke' | 'partner' | 'success' | 'info' | 'error' | 'confirm';
     title: string;
     body: string;
     badge?: string;
+    onConfirm?: () => void;
+    confirmLabel?: string;
   } | null>(null);
 
   const currentUserCardRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-dismiss in-modal popups after 8 seconds
+  // Auto-dismiss in-modal popups after 8 seconds (except confirmations)
   useEffect(() => {
-    if (modalPopup) {
+    if (modalPopup && modalPopup.type !== 'confirm') {
       const timer = setTimeout(() => {
         setModalPopup(null);
       }, 8000);
@@ -256,47 +258,50 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
     e?: React.MouseEvent
   ) => {
     if (e) e.stopPropagation();
-    const confirmed = window.confirm(
-      `Are you sure you want to remove ${friendName || 'this friend'} from your friends list?`
-    );
-    if (!confirmed) return;
-
-    setActionLoadingId(targetUserId);
-    try {
-      const res = await api.friends.remove({
-        friendshipId,
-        targetUserId,
-      });
-      if (res.success) {
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === targetUserId
-              ? { ...u, friendshipStatus: 'NONE', friendshipRequestId: undefined }
-              : u
-          )
-        );
-        await fetchData();
-        setModalPopup({
-          type: 'info',
-          title: 'Friend Removed',
-          body: `${friendName || 'Friend'} was removed from your friends list.`,
-        });
-      } else {
-        setModalPopup({
-          type: 'error',
-          title: 'Failed to Remove',
-          body: res.message || 'Failed to remove friend',
-        });
-      }
-    } catch (err: any) {
-      setModalPopup({
-        type: 'error',
-        title: 'Error',
-        body: err.message || 'Error removing friend',
-      });
-    } finally {
-      setActionLoadingId(null);
-    }
+    setModalPopup({
+      type: 'confirm',
+      title: 'Remove Friend',
+      body: `Are you sure you want to remove ${friendName || 'this friend'} from your friends list?`,
+      confirmLabel: 'Remove Friend',
+      onConfirm: async () => {
+        setActionLoadingId(targetUserId);
+        try {
+          const res = await api.friends.remove({
+            friendshipId,
+            targetUserId,
+          });
+          if (res.success) {
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.id === targetUserId
+                  ? { ...u, friendshipStatus: 'NONE', friendshipRequestId: undefined }
+                  : u
+              )
+            );
+            await fetchData();
+            setModalPopup({
+              type: 'info',
+              title: 'Friend Removed',
+              body: `${friendName || 'Friend'} was removed from your friends list.`,
+            });
+          } else {
+            setModalPopup({
+              type: 'error',
+              title: 'Failed to Remove',
+              body: res.message || 'Failed to remove friend',
+            });
+          }
+        } catch (err: any) {
+          setModalPopup({
+            type: 'error',
+            title: 'Error',
+            body: err.message || 'Error removing friend',
+          });
+        } finally {
+          setActionLoadingId(null);
+        }
+      },
+    });
   };
 
   // Filter users based on active tab and search
@@ -819,19 +824,19 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                             onClick={(e) => handleToggleAccountabilityPartner(u.id, u.friendshipRequestId, u.name, e)}
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
                               accountabilityPartnerIds.has(u.id)
-                                ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-300 dark:ring-orange-600'
+                                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'
                                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                             }`}
                             title={
                               accountabilityPartnerIds.has(u.id)
-                                ? '🔥 Live partner enabled: notifications synced!'
-                                : 'Enable to receive & share real-time fire progress alerts'
+                                ? '🔥 Accountability partner connected: notifications synced!'
+                                : 'Connect as accountability partner to share progress'
                             }
                           >
-                            <Flame className={`w-3 h-3 ${accountabilityPartnerIds.has(u.id) ? 'fill-white text-white animate-pulse' : 'text-slate-400'}`} />
+                            <Flame className={`w-3 h-3 ${accountabilityPartnerIds.has(u.id) ? 'fill-white text-white' : 'text-slate-400'}`} />
                             <span>
                               {accountabilityPartnerIds.has(u.id)
-                                ? '🔥 Accountability Partner (Active)'
+                                ? '🔥 Partner (Active)'
                                 : '⚡ Connect Partner'}
                             </span>
                           </button>
@@ -989,40 +994,31 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
         </div>
       </div>
 
-      {/* Modern In-App Floating Alert / Pop-Up Modal */}
+      {/* Clean & Simple In-App Alert / Pop-Up Modal */}
       {modalPopup && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xl p-5 space-y-4 relative overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Vibrant Background Aura Glow */}
-            <div className={`absolute -top-10 -right-10 w-36 h-36 rounded-full blur-2xl pointer-events-none opacity-60 ${
-              modalPopup.type === 'poke' ? 'bg-amber-500/30' : modalPopup.type === 'partner' ? 'bg-orange-500/35' : 'bg-indigo-500/30'
-            }`} />
-            <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-purple-500/20 rounded-full blur-2xl pointer-events-none opacity-50" />
-
-            {/* Top Row: Icon, Title, Badge & Close */}
-            <div className="flex items-start justify-between gap-2.5 relative z-10">
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-2xl shadow-md shrink-0 border ${
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-5 space-y-3.5 relative animate-in zoom-in-95 duration-150">
+            {/* Top Row: Icon, Title & Close */}
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 border ${
                   modalPopup.type === 'poke'
-                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700/60 text-amber-500'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800 text-amber-500'
                     : modalPopup.type === 'partner'
-                    ? 'bg-orange-50 dark:bg-orange-950/60 border-orange-300 dark:border-orange-700/60 text-orange-500'
-                    : modalPopup.type === 'success'
-                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700/60 text-emerald-500'
-                    : modalPopup.type === 'error'
-                    ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-700/60 text-rose-500'
-                    : 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700/60 text-indigo-500'
+                    ? 'bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800 text-orange-500'
+                    : modalPopup.type === 'confirm' || modalPopup.type === 'error'
+                    ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-500'
+                    : 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-500'
                 }`}>
-                  {modalPopup.type === 'poke' ? '👉' : modalPopup.type === 'partner' ? '🔥' : modalPopup.type === 'success' ? '🚀' : modalPopup.type === 'error' ? '⚠️' : '✨'}
+                  {modalPopup.type === 'poke' ? '👉' : modalPopup.type === 'partner' ? '🔥' : modalPopup.type === 'confirm' ? '⚠️' : modalPopup.type === 'error' ? '❌' : '✨'}
                 </div>
-                <div>
-                  <h4 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
                     {modalPopup.title}
                   </h4>
                   {modalPopup.badge && (
-                    <span className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                      {modalPopup.badge}
+                    <span className="inline-block mt-0.5 text-[10.5px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      ✓ {modalPopup.badge}
                     </span>
                   )}
                 </div>
@@ -1031,26 +1027,48 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               <button
                 type="button"
                 onClick={() => setModalPopup(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                ✕
               </button>
             </div>
 
             {/* Message Body Content Card */}
-            <div className="relative z-10 bg-slate-50/90 dark:bg-slate-850/80 border border-slate-100 dark:border-slate-800/80 rounded-2xl p-3.5 text-xs text-slate-700 dark:text-slate-200 font-medium whitespace-pre-wrap leading-relaxed shadow-inner">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap leading-relaxed">
               {modalPopup.body}
             </div>
 
-            {/* Bottom Button */}
-            <div className="relative z-10 pt-1">
-              <button
-                type="button"
-                onClick={() => setModalPopup(null)}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-extrabold shadow-md shadow-indigo-500/25 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>Awesome, Got It! 👍</span>
-              </button>
+            {/* Bottom Actions */}
+            <div className="flex justify-end gap-2 pt-1">
+              {modalPopup.type === 'confirm' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setModalPopup(null)}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      modalPopup.onConfirm?.();
+                      setModalPopup(null);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    {modalPopup.confirmLabel || 'Confirm'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setModalPopup(null)}
+                  className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer text-center"
+                >
+                  OK
+                </button>
+              )}
             </div>
           </div>
         </div>

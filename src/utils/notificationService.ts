@@ -24,7 +24,7 @@ export const notificationService = {
 
   async requestPermission(): Promise<boolean> {
     if (!this.isSupported()) {
-      alert('Notifications are not supported by your browser.');
+      console.warn('Notifications are not supported by this browser.');
       return false;
     }
 

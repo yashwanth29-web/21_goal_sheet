@@ -39,6 +39,13 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
 }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [headerModal, setHeaderModal] = useState<{
+    title: string;
+    message: string;
+    type?: 'info' | 'success' | 'confirm';
+    onConfirm?: () => void;
+    confirmLabel?: string;
+  } | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -136,9 +143,17 @@ export const Header: React.FC<HeaderProps> = ({
               }
               const granted = await notificationService.requestPermission();
               if (granted) {
-                alert('🔔 Reminders Enabled! You will receive daily goal & friend request alerts.');
+                setHeaderModal({
+                  title: '🔔 Reminders Enabled',
+                  message: 'You will receive daily goal reminders, slot notifications, and friend request alerts.',
+                  type: 'success',
+                });
               } else if (Notification.permission === 'denied') {
-                alert('⚠️ Notifications blocked in browser settings. Please enable them in your address bar.');
+                setHeaderModal({
+                  title: '⚠️ Notifications Blocked',
+                  message: 'Notifications are blocked in your browser settings. Please allow notifications in your address bar or site settings.',
+                  type: 'info',
+                });
               }
             }}
             className="relative p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 text-slate-700 dark:text-slate-300 text-xs shadow-xs transition-colors cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 shrink-0"
@@ -196,9 +211,13 @@ export const Header: React.FC<HeaderProps> = ({
                     type="button"
                     onClick={() => {
                       setUserMenuOpen(false);
-                      if (window.confirm('Are you sure you want to log out?')) {
-                        onLogout();
-                      }
+                      setHeaderModal({
+                        title: 'Log Out',
+                        message: 'Are you sure you want to log out of your account?',
+                        type: 'confirm',
+                        confirmLabel: 'Log Out',
+                        onConfirm: onLogout,
+                      });
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl font-semibold transition-colors cursor-pointer"
                   >
@@ -212,17 +231,77 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Mobile-Only Sleek Leaderboard Banner (Clean, High-Contrast & Eye-Catching) */}
+      {/* Clean & Simple In-App Modal Dialog */}
+      {headerModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-5 space-y-3.5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-base shrink-0">
+                  {headerModal.type === 'confirm' ? '🚪' : headerModal.type === 'success' ? '🔔' : 'ℹ️'}
+                </div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {headerModal.title}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHeaderModal(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+              {headerModal.message}
+            </p>
+
+            <div className="flex justify-end gap-2 pt-1">
+              {headerModal.type === 'confirm' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setHeaderModal(null)}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      headerModal.onConfirm?.();
+                      setHeaderModal(null);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    {headerModal.confirmLabel || 'Confirm'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setHeaderModal(null)}
+                  className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs cursor-pointer text-center"
+                >
+                  OK
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile-Only Sleek Leaderboard Banner (Clean & High-Contrast) */}
       <div className="md:hidden w-full">
         <button
           type="button"
           onClick={onOpenLeaderboard}
-          className="relative group/lb w-full flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs sm:text-sm font-bold shadow-md shadow-amber-500/20 active:scale-[0.99] transition-transform overflow-hidden cursor-pointer"
+          className="relative group/lb w-full flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold shadow-xs active:scale-[0.99] transition-transform overflow-hidden cursor-pointer"
         >
-          <div className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 animate-shimmer-sweep pointer-events-none" />
           <div className="flex items-center gap-2.5">
-            <Trophy className="w-4 h-4 text-amber-100 group-hover/lb:rotate-12 transition-transform duration-200 shrink-0" />
-            <span className="font-extrabold tracking-tight text-white drop-shadow-xs">
+            <Trophy className="w-4 h-4 text-amber-100 shrink-0" />
+            <span className="font-extrabold tracking-tight text-white">
               Friends Leaderboard
             </span>
           </div>
@@ -232,7 +311,7 @@ export const Header: React.FC<HeaderProps> = ({
               +{pendingRequestsCount} Requests
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-950/40 border border-white/20 text-[9.5px] font-black uppercase tracking-wider text-emerald-300 shrink-0">
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-600/60 border border-white/20 text-[9.5px] font-black uppercase tracking-wider text-white shrink-0">
               <span className="flex h-1.5 w-1.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300" />
